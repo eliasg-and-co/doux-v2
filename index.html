@@ -172,10 +172,10 @@
       <button class="stem-mute" id="mute-subway">mute</button>
     </div>
 
-    <div class="stem-tile" id="tile-snow" data-stem="snow" data-param="Snow Accumulation">
+    <div class="stem-tile" id="tile-snow" data-stem="snow" data-param="Precipitation">
       <div class="stem-state-badge" id="badge-snow">dry</div>
       <div class="stem-source">Weather · Precipitation</div>
-      <div class="stem-param">Snow Accumulation</div>
+      <div class="stem-param">Precipitation</div>
       <div class="stem-target">→ lead · tremolo · reverb · LFO</div>
       <div class="stem-mini-wave" style="--spd:1.2s">
         <span style="height:20%"></span><span style="height:40%"></span><span style="height:25%"></span><span style="height:55%"></span><span style="height:35%"></span><span style="height:45%"></span><span style="height:30%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span><span style="height:30%"></span><span style="height:55%"></span><span style="height:20%"></span><span style="height:45%"></span><span style="height:35%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span>
@@ -372,8 +372,17 @@ async function initAudio() {
     await Tone.start();
     setStatus('· loading stems ·');
 
-    // Step 2: build master bus
-    const masterBus = new Tone.Gain(0.75).toDestination();
+    // Step 2: build master bus with compressor + limiter to prevent clipping
+    // Mirrors v1's DynamicsCompressor: threshold -18, knee 8, ratio 4, attack 3ms, release 250ms
+    const masterLimiter    = new Tone.Limiter(-3).toDestination();
+    const masterCompressor = new Tone.Compressor({
+      threshold: -18,
+      knee:       8,
+      ratio:      4,
+      attack:     0.003,
+      release:    0.25,
+    }).connect(masterLimiter);
+    const masterBus = new Tone.Gain(0.72).connect(masterCompressor);
     toneAnalyser = new Tone.Analyser('fft', 2048);
     masterBus.connect(toneAnalyser);
 
@@ -392,15 +401,7 @@ async function initAudio() {
       s.masterGain = new Tone.Gain(1).connect(masterBus);
       s.dryGain    = new Tone.Gain(1).connect(s.masterGain);
       s.wetGain    = new Tone.Gain(0).connect(s.masterGain);
-      const url = 'stems_for_player/'+key+'_dry.mp3';
-      console.log('Loading:', url);
-      s.player     = new Tone.Player({
-        url: url,
-        loop: true,
-        autostart: false,
-        onload: () => console.log('✓ Loaded:', url),
-        onerror: (err) => console.error('✗ Failed to load:', url, err)
-      });
+      s.player     = new Tone.Player({ url:'stems/'+key+'_dry.mp3', loop:true, autostart:false });
       // dry
       s.player.connect(s.dryGain);
       // wet: chain through fx manually
@@ -444,35 +445,15 @@ async function initAudio() {
 
     // Step 5: wait for ALL audio buffers to finish loading
     setStatus('· buffering audio ·');
-    console.log('Waiting for all stems to load...');
-
-    try {
-      await Tone.loaded();
-      console.log('✓ All audio buffers loaded successfully');
-    } catch(loadErr) {
-      console.error('✗ Tone.loaded() failed:', loadErr);
-      setStatus('· failed to load audio files · check console ·');
-      initInProgress = false;
-      return false;
-    }
-
-    // Verify all players loaded
-    const failedStems = STEMS.filter(k => !stemData[k].player.loaded);
-    if (failedStems.length > 0) {
-      console.error('✗ Failed to load stems:', failedStems);
-      setStatus('· failed to load: ' + failedStems.join(', ') + ' ·');
-      initInProgress = false;
-      return false;
-    }
+    await Tone.loaded();
 
     isReady = true;
     initInProgress = false;
-    console.log('✓ Audio system ready');
     setStatus('· ready · press play ·');
     return true;
 
   } catch(err) {
-    console.error('✗ Audio init failed:', err);
+    console.error('Audio init failed:', err);
     setStatus('· error: ' + err.message + ' ·');
     initInProgress = false;
     return false;
@@ -581,7 +562,7 @@ const fxPanelConfig = {
     ]
   },
   snow: {
-    title: 'Snow Accumulation → Lead',
+    title: 'Precipitation → Lead',
     rows: [
       { id:'tremolo', label:'Tremolo Depth', unit:'%',  src:'Precipitation (mm/hr)', normFn: v => (v-10)/90 },
       { id:'lfo',     label:'LFO Rate',      unit:'Hz', src:'Precipitation (mm/hr)', normFn: v => (v-0.5)/10 },
