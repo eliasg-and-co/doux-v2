@@ -439,7 +439,7 @@ async function initAudio() {
       s.masterGain = new Tone.Gain(1).connect(masterBus);
       s.dryGain    = new Tone.Gain(1).connect(s.masterGain);
       s.wetGain    = new Tone.Gain(0).connect(s.masterGain);
-      s.player     = new Tone.Player({ url:'stems/'+key+'_dry.mp3', loop:true, autostart:false });
+      s.player     = new Tone.Player({ url:'stems_for_player/'+key+'_dry.mp3', loop:true, autostart:false });
       // dry
       s.player.connect(s.dryGain);
       // wet: chain through fx manually
