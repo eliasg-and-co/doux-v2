@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<!-- Tone.js loaded synchronously, no defer, no module — must resolve before any script below -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 <style>
   :root {
@@ -44,11 +45,6 @@
   .player-status{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.4;font-style:italic;}
   .player-hint{font-size:0.6rem;opacity:0.3;font-style:italic;}
   #spectrum-canvas{width:100%;height:72px;display:block;margin-bottom:2.5rem;}
-
-  /* ── Per-stem canvas waveforms ── */
-  .stem-canvas{display:block;width:100%;height:26px;margin-bottom:1rem;opacity:0.5;transition:opacity 0.22s;}
-  .stem-tile.active .stem-canvas{opacity:1;}
-
   .stems-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--green-line);border:1px solid var(--green-line);}
   @media(max-width:900px){.stems-grid{grid-template-columns:repeat(3,1fr);}}
   @media(max-width:600px){.stems-grid{grid-template-columns:repeat(2,1fr);}}
@@ -64,21 +60,16 @@
   .stem-tile.active .stem-param{color:var(--cream);}
   .stem-target{font-size:0.62rem;opacity:0.45;font-style:italic;margin-bottom:1rem;transition:color 0.22s,opacity 0.22s;}
   .stem-tile.active .stem-target{color:var(--cream);opacity:0.6;}
+  .stem-mini-wave{width:100%;height:26px;display:flex;align-items:center;gap:1.5px;margin-bottom:1rem;}
+  .stem-mini-wave span{flex:1;border-radius:1px;background:var(--green);opacity:0.12;transform-origin:center;transition:opacity 0.3s,background 0.22s;}
+  .stem-tile:hover .stem-mini-wave span{opacity:0.22;animation:miniWave var(--spd,0.9s) ease-in-out infinite alternate;}
+  .stem-tile.active .stem-mini-wave span{background:var(--cream);opacity:0.45;animation:miniWave var(--spd,0.6s) ease-in-out infinite alternate;}
+  @keyframes miniWave{from{transform:scaleY(0.2)}to{transform:scaleY(1)}}
   .stem-mute{width:100%;padding:0.4rem 0;font-family:var(--mono);font-size:0.48rem;letter-spacing:0.18em;text-transform:uppercase;background:transparent;border:1px solid rgba(45,90,61,0.25);color:var(--green);cursor:crosshair;transition:all 0.18s;display:block;margin-top:auto;}
   .stem-mute:hover{border-color:var(--green);}
   .stem-tile.active .stem-mute{border-color:rgba(245,240,232,0.3);color:var(--cream);}
   .stem-tile.active .stem-mute.is-muted{background:rgba(245,240,232,0.15);border-color:var(--cream)!important;}
   .stem-mute.is-muted{background:var(--green-faint);border-color:var(--green)!important;}
-
-  /* ── BTC ticker badge ── */
-  #btc-live-badge {
-    display:inline-flex;align-items:center;gap:0.4rem;
-    font-size:0.5rem;letter-spacing:0.12em;text-transform:uppercase;
-    opacity:0.55;transition:color 0.3s;
-  }
-  #btc-live-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1s ease-in-out infinite;}
-  #btc-live-badge.up{color:#2D7A3D;}
-  #btc-live-badge.down{color:#7A2D2D;}
 
   /* ── FX Panel ── */
   .fx-panel{
@@ -89,7 +80,10 @@
     transition:opacity 0.22s ease,transform 0.22s ease;
   }
   .fx-panel.visible{opacity:1;transform:translateY(0);pointer-events:all;}
-  .fx-panel-head{display:flex;justify-content:space-between;align-items:center;padding:0.8rem 1.1rem;border-bottom:1px solid var(--green-line);}
+  .fx-panel-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:0.8rem 1.1rem;border-bottom:1px solid var(--green-line);
+  }
   .fx-panel-title{font-size:0.5rem;letter-spacing:0.18em;text-transform:uppercase;opacity:0.5;display:flex;align-items:center;gap:0.45rem;}
   .fx-panel-title::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite;}
   .fx-panel-close{font-size:0.5rem;letter-spacing:0.1em;opacity:0.35;cursor:crosshair;background:none;border:none;color:var(--green);font-family:var(--mono);padding:0;}
@@ -117,6 +111,7 @@
 </head>
 <body>
 
+<!-- FX overlay -->
 <div class="fx-panel" id="fx-panel">
   <div class="fx-panel-head">
     <div class="fx-panel-title" id="fx-panel-title">Effects</div>
@@ -165,56 +160,60 @@
     <span class="player-hint">press play first · click tile to activate data</span>
   </div>
   <canvas id="spectrum-canvas"></canvas>
-
   <div class="stems-grid">
 
-    <!-- SUBWAY — unchanged -->
     <div class="stem-tile" id="tile-subway" data-stem="subway" data-param="L Train Delay">
       <div class="stem-state-badge" id="badge-subway">dry</div>
       <div class="stem-source">MTA · L Train</div>
       <div class="stem-param">L Train Delay</div>
       <div class="stem-target">→ drums · bitcrush · filter · feedback</div>
-      <canvas class="stem-canvas" id="canvas-subway" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
+      <div class="stem-mini-wave" style="--spd:0.42s">
+        <span style="height:85%"></span><span style="height:20%"></span><span style="height:80%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:80%"></span><span style="height:20%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:20%"></span><span style="height:80%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span>
+      </div>
       <button class="stem-mute" id="mute-subway">mute</button>
     </div>
 
-    <!-- SNOW — autowah · ping pong · vibrato -->
     <div class="stem-tile" id="tile-snow" data-stem="snow" data-param="Precipitation">
       <div class="stem-state-badge" id="badge-snow">dry</div>
       <div class="stem-source">Weather · Precipitation</div>
       <div class="stem-param">Precipitation</div>
-      <div class="stem-target">→ lead · autowah · ping pong · vibrato</div>
-      <canvas class="stem-canvas" id="canvas-snow" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
+      <div class="stem-target">→ lead · tremolo · reverb · LFO</div>
+      <div class="stem-mini-wave" style="--spd:1.2s">
+        <span style="height:20%"></span><span style="height:40%"></span><span style="height:25%"></span><span style="height:55%"></span><span style="height:35%"></span><span style="height:45%"></span><span style="height:30%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span><span style="height:30%"></span><span style="height:55%"></span><span style="height:20%"></span><span style="height:45%"></span><span style="height:35%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span>
+      </div>
       <button class="stem-mute" id="mute-snow">mute</button>
     </div>
 
-    <!-- TEMP — chebyshev · chorus · reverb -->
     <div class="stem-tile" id="tile-temp" data-stem="temp" data-param="Temperature">
       <div class="stem-state-badge" id="badge-temp">dry</div>
       <div class="stem-source">Weather · Temperature</div>
       <div class="stem-param">Temperature</div>
-      <div class="stem-target">→ lead · chebyshev · chorus · reverb</div>
-      <canvas class="stem-canvas" id="canvas-temp" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
+      <div class="stem-target">→ lead · distortion · reverb · chorus</div>
+      <div class="stem-mini-wave" style="--spd:0.75s">
+        <span style="height:55%"></span><span style="height:75%"></span><span style="height:60%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:55%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span>
+      </div>
       <button class="stem-mute" id="mute-temp">mute</button>
     </div>
 
-    <!-- WIND — new: filter · distortion -->
     <div class="stem-tile" id="tile-wind" data-stem="wind" data-param="Wind Speed">
       <div class="stem-state-badge" id="badge-wind">dry</div>
       <div class="stem-source">Weather · Wind Speed</div>
       <div class="stem-param">Wind Speed</div>
-      <div class="stem-target">→ bass · filter · distortion</div>
-      <canvas class="stem-canvas" id="canvas-wind" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
+      <div class="stem-target">→ bass · filter · phaser · autopan</div>
+      <div class="stem-mini-wave" style="--spd:0.5s">
+        <span style="height:35%"></span><span style="height:65%"></span><span style="height:45%"></span><span style="height:80%"></span><span style="height:30%"></span><span style="height:70%"></span><span style="height:50%"></span><span style="height:85%"></span><span style="height:40%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:35%"></span><span style="height:55%"></span><span style="height:90%"></span><span style="height:45%"></span><span style="height:65%"></span><span style="height:30%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:70%"></span>
+      </div>
       <button class="stem-mute" id="mute-wind">mute</button>
     </div>
 
-    <!-- MARKET — now BTC: tremolo (delta) · reverb -->
-    <div class="stem-tile" id="tile-market" data-stem="market" data-param="BTC Price">
+    <div class="stem-tile" id="tile-market" data-stem="market" data-param="Market Volatility">
       <div class="stem-state-badge" id="badge-market">dry</div>
-      <div class="stem-source">Markets · BTC-USD</div>
-      <div class="stem-param">BTC Price</div>
-      <div class="stem-target">→ keys · tremolo · reverb</div>
-      <canvas class="stem-canvas" id="canvas-market" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
+      <div class="stem-source">Markets · VIX</div>
+      <div class="stem-param">Market Volatility</div>
+      <div class="stem-target">→ keys · ping pong · stereo width</div>
+      <div class="stem-mini-wave" style="--spd:0.32s">
+        <span style="height:30%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:25%"></span><span style="height:80%"></span><span style="height:35%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:25%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:80%"></span>
+      </div>
       <button class="stem-mute" id="mute-market">mute</button>
     </div>
 
@@ -238,37 +237,21 @@
   <div style="display:flex;align-items:center;gap:2rem;">
     <a href="https://eegee.substack.com" target="_blank" style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.45;color:var(--green);text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.45'">Substack ↗</a>
     <a href="https://www.instagram.com/eliasgoodman/" target="_blank" style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.45;color:var(--green);text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.45'">Instagram ↗</a>
-    <div id="btc-live-badge"><span class="dot"></span><span id="btc-readout">· connecting ·</span></div>
     <span id="live-readout" style="font-size:0.55rem;letter-spacing:0.08em;opacity:0.3;text-transform:uppercase;">· loading ·</span>
   </div>
 </footer>
 
 <script>
-// ══════════════════════════════════════════════════════════════════
-// CHANGE LOG (vs original)
-// ──────────────────────────────────────────────────────────────────
-// SUBWAY  (drums):   UNCHANGED — BitCrusher → Filter → FeedbackDelay
-// SNOW    (lead):    WAS: Tremolo → Reverb → LFO Filter
-//                    NOW: AutoWah → AutoFilter (LFO @ track BPM) → Vibrato
-// TEMP    (lead):    WAS: Distortion → Chorus → Reverb
-//                    NOW: PingPongDelay → Chorus → Reverb
-// WIND    (bass):    WAS: Filter → Phaser → AutoPanner
-//                    NOW: Filter → Distortion
-// MARKET  (keys):    WAS: PingPongDelay → StereoWidener  |  source: VIX via REST poll
-//                    NOW: FrequencyShifter (±1 semitone max) → WaveShaper  |  source: BTC-USD via Coinbase WebSocket
-// ══════════════════════════════════════════════════════════════════
-
-// ── TRACK BPM — set this to your actual track BPM ─────────────────
-// Used to lock AutoFilter LFO to musical time on the snow stem.
-const TRACK_BPM = 127; // blizzard 02.23.26
-
+// ══════════════════════════════════════
+// SANITY CHECK — if Tone didn't load, show a clear message
+// ══════════════════════════════════════
 if (typeof Tone === 'undefined') {
-  document.getElementById('player-status').textContent = '· Tone.js failed to load — check network ·';
+  document.getElementById('player-status').textContent = '· Tone.js failed to load — check network connection ·';
 }
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // BACKGROUND CANVAS
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 const bgSvg = document.getElementById('data-canvas');
 let bgLines = [], bgT = 0;
 const vW = () => window.innerWidth, vH = () => window.innerHeight;
@@ -302,9 +285,9 @@ function renderBg() {
 function bgTick(){bgT+=0.006;renderBg();requestAnimationFrame(bgTick);}
 initBgLines();bgTick();window.addEventListener('resize',initBgLines);
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // SPECTRUM
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 const specEl=document.getElementById('spectrum-canvas'),spec2d=specEl.getContext('2d');
 let toneAnalyser=null,specT=0,isPlaying=false;
 function resizeSpec(){specEl.width=specEl.offsetWidth*devicePixelRatio;specEl.height=specEl.offsetHeight*devicePixelRatio;}
@@ -330,18 +313,19 @@ function drawSpectrum(){
 }
 drawSpectrum();
 
-// ══════════════════════════════════════════════════════════════════
-// LIVE DATA STATE
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
+// LIVE DATA
+// Open-Meteo is free, no API key needed.
+// Falls back to realistic demo values if fetch fails (e.g. when running via file://)
+// ══════════════════════════════════════
 const liveData = {
   temp:   { norm: 0.45, display: '55°F',    label: 'Temperature' },
   wind:   { norm: 0.25, display: '10 mph',  label: 'Wind Speed' },
   snow:   { norm: 0.0,  display: '0 mm/hr', label: 'Precipitation' },
   subway: { norm: 0.3,  display: '5 min',   label: 'L Train Delay' },
-  market: { norm: 0.5,  display: '...',     label: 'BTC-USD' },
+  market: { norm: 0.4,  display: 'VIX 18',  label: 'VIX' },
 };
 
-// ── WEATHER (Open-Meteo, no key required) ────────────────────────
 async function fetchWeather() {
   try {
     const res = await fetch(
@@ -354,242 +338,83 @@ async function fetchWeather() {
     const t = d.current.temperature_2m;
     const w = d.current.wind_speed_10m;
     const p = d.current.precipitation;
-    liveData.temp = { norm: Math.max(0,Math.min(1,(t-10)/90)), display: Math.round(t)+'°F', label:'Temperature' };
-    liveData.wind = { norm: Math.min(1,w/40),                  display: Math.round(w)+' mph', label:'Wind Speed' };
-    liveData.snow = { norm: Math.min(1,p/8),                   display: p.toFixed(1)+' mm/hr', label:'Precipitation' };
+    liveData.temp   = { norm: Math.max(0,Math.min(1,(t-10)/90)),   display: Math.round(t)+'°F',          label:'Temperature' };
+    liveData.wind   = { norm: Math.min(1,w/40),                    display: Math.round(w)+' mph',         label:'Wind Speed' };
+    liveData.snow   = { norm: Math.min(1,p/8),                     display: p.toFixed(1)+' mm/hr',        label:'Precipitation' };
     document.getElementById('live-readout').textContent =
       `· NYC ${Math.round(t)}°F · ${Math.round(w)} mph · ${p} mm/hr ·`;
   } catch(e) {
-    console.warn('Weather fetch failed:', e.message);
-    document.getElementById('live-readout').textContent = '· demo mode ·';
+    console.warn('Weather fetch failed, using demo values:', e.message);
+    document.getElementById('live-readout').textContent = '· demo mode · deploy to vercel for live data ·';
   }
 }
 fetchWeather();
 setInterval(fetchWeather, 60000);
 
-// ── MTA (Vercel serverless proxy, unchanged) ─────────────────────
+// ── REAL VIX DATA ────────────────────────────────────────
+// Proxied through /api/vix (Vercel serverless) to avoid CORS.
+// Mirrors vix_osc.py normalization: VIX 10=0.0, VIX 45=1.0, tension curve applied.
+async function fetchVIX() {
+  try {
+    const r = await fetch('/api/vix', { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`VIX API ${r.status}`);
+    const d = await r.json();
+    liveData.market = {
+      norm:    d.norm,
+      display: d.display,
+      label:   'VIX',
+      raw:     d.raw,
+    };
+    console.log(`VIX: ${d.raw} → norm ${d.norm}`);
+  } catch(e) {
+    console.warn('VIX fetch failed, keeping last value:', e.message);
+  }
+}
+
+// ── REAL MTA DATA ────────────────────────────────────────
+// Proxied through /api/mta (Vercel serverless).
+// Mirrors mta.py: counts L train delays (>2min) + L train service alerts, cap 30.
 async function fetchMTA() {
   try {
     const r = await fetch('/api/mta', { signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error(`MTA API ${r.status}`);
     const d = await r.json();
-    liveData.subway = { norm: d.norm, display: d.display, label: 'L Train', raw: d.combined };
+    liveData.subway = {
+      norm:    d.norm,
+      display: d.display,
+      label:   'L Train',
+      raw:     d.combined,
+    };
+    console.log(`MTA L: ${d.combined} issues → norm ${d.norm}`);
   } catch(e) {
-    console.warn('MTA fetch failed:', e.message);
+    console.warn('MTA fetch failed, keeping last value:', e.message);
   }
 }
+
+// Initial fetches + poll every 60s (matches your Python scripts)
+fetchVIX();
 fetchMTA();
+setInterval(fetchVIX, 60000);
 setInterval(fetchMTA, 60000);
 
-// ══════════════════════════════════════════════════════════════════
-// COINBASE WEBSOCKET — BTC-USD tick-by-tick, DELTA-based normalization
-//
-// Instead of mapping absolute price to effects (which is static and
-// unresponsive to actual market behaviour), we track the 60-second
-// price delta — how much BTC has moved in the last minute.
-//
-// Norm 0.5 = no net movement (neutral effects)
-// Norm > 0.5 = price rising (effects push positive direction)
-// Norm < 0.5 = price falling (effects push negative direction)
-//
-// BTC_DELTA_SENSITIVITY = $200: a $200 move in 60s = full deflection (0 or 1).
-// Typical BTC moves $20–$100/min in normal trading — this gives a
-// responsive range. Volatile sessions will frequently hit the extremes.
-//
-// Delta of 0 (flat market) = norm 0.5 = both effects at 50% wet.
-// Delta of +$200 (rising) = norm 1.0 = max effect.
-// Delta of -$200 (falling) = norm 0.0 = min effect.
-//
-// Display shows: current price + delta arrow + delta amount
-// e.g. "$83,420 ↑ +$340"
-// ══════════════════════════════════════════════════════════════════
-const BTC_DELTA_SENSITIVITY = 200; // $200 move in 60s = full effect range
-const btcHistory = [];              // rolling price history: [{ price, time }, ...]
-let btcCurrentPrice = null;
-
-function computeBtcDeltaNorm() {
-  if (btcHistory.length < 2) return 0.5; // neutral until we have history
-  const now = Date.now();
-  // Find the oldest entry within the last 60 seconds
-  const ref = btcHistory.find(p => p.time >= now - 60000);
-  if (!ref) return 0.5;
-  const delta = btcCurrentPrice - ref.price;
-  // Map delta to 0–1: centre at 0.5, ±sensitivity = full deflection
-  return Math.max(0, Math.min(1, 0.5 + delta / (BTC_DELTA_SENSITIVITY * 2)));
-}
-
-function formatBtcDelta(delta) {
-  if (delta === 0) return '→ $0';
-  const arrow = delta > 0 ? '↑' : '↓';
-  return `${arrow} ${delta > 0 ? '+' : ''}$${Math.round(delta).toLocaleString()}`;
-}
-
-function connectCoinbase() {
-  let ws;
-  try {
-    ws = new WebSocket('wss://advanced-trade-ws.coinbase.com/');
-  } catch(e) {
-    console.warn('Coinbase WS failed to open:', e);
-    setTimeout(connectCoinbase, 5000);
-    return;
-  }
-
-  ws.onopen = () => {
-    console.log('Coinbase WS connected');
-    ws.send(JSON.stringify({
-      type: 'subscribe',
-      product_ids: ['BTC-USD'],
-      channel: 'ticker'
-    }));
-    document.getElementById('btc-readout').textContent = '· btc connected ·';
-  };
-
-  ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data);
-      if (msg.channel === 'ticker' && msg.events?.[0]?.tickers?.[0]) {
-        const price = parseFloat(msg.events[0].tickers[0].price);
-        if (isNaN(price)) return;
-
-        const prevPrice = btcCurrentPrice;
-        btcCurrentPrice = price;
-
-        // Add to rolling history, prune entries older than 90s
-        btcHistory.push({ price, time: Date.now() });
-        const cutoff = Date.now() - 90000;
-        while (btcHistory.length && btcHistory[0].time < cutoff) btcHistory.shift();
-
-        // Compute delta vs 60s ago
-        const ref60 = btcHistory.find(p => p.time >= Date.now() - 60000);
-        const delta60 = ref60 ? price - ref60.price : 0;
-        const norm = computeBtcDeltaNorm();
-        const dir = prevPrice !== null ? (price > prevPrice ? 'up' : price < prevPrice ? 'down' : '') : '';
-
-        liveData.market = {
-          norm,
-          display: `$${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)}`,
-          delta: delta60,
-          raw: price,
-          label: 'BTC-USD',
-        };
-
-        // Footer badge
-        const badge   = document.getElementById('btc-live-badge');
-        const readout = document.getElementById('btc-readout');
-        readout.textContent = `· BTC $${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)} ·`;
-        if (dir) {
-          badge.className = 'btc-live-badge ' + dir;
-          setTimeout(() => badge.className = 'btc-live-badge', 800);
-        }
-      }
-    } catch(err) {
-      // malformed message, ignore
-    }
-  };
-
-  ws.onclose = (e) => {
-    console.warn('Coinbase WS closed, reconnecting in 3s…', e.code);
-    document.getElementById('btc-readout').textContent = '· btc reconnecting ·';
-    setTimeout(connectCoinbase, 3000);
-  };
-
-  ws.onerror = (err) => {
-    console.warn('Coinbase WS error:', err);
-    ws.close(); // triggers onclose → reconnect
-  };
-}
-connectCoinbase();
-
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // AUDIO ENGINE
-// ══════════════════════════════════════════════════════════════════
+// Key rules followed:
+// 1. Tone.start() ONLY inside click handler (browser autoplay policy)
+// 2. Players created with loop:true, autostart:false
+// 3. await Tone.loaded() before starting playback
+// 4. Parallel dry/wet gain routing — no CrossFade (buggy in v14)
+// 5. All parameter changes via .rampTo() or .setTargetAtTime() for smoothness
+// ══════════════════════════════════════
 let isReady = false, initInProgress = false;
+
 const STEMS = ['subway','snow','temp','wind','market'];
 const stemData = {};
 STEMS.forEach(k => {
-  stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, active:false, muted:false, analyser:null };
+  stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, active:false, muted:false };
 });
 
-// ── Per-stem canvas analysers ─────────────────────────────────────
-const stemCanvases = {};
-STEMS.forEach(k => {
-  const el = document.getElementById('canvas-' + k);
-  if (el) {
-    el.width  = el.offsetWidth  * devicePixelRatio || 200;
-    el.height = el.offsetHeight * devicePixelRatio || 26;
-    stemCanvases[k] = { el, ctx: el.getContext('2d') };
-  }
-});
-window.addEventListener('resize', () => {
-  STEMS.forEach(k => {
-    const sc = stemCanvases[k];
-    if (!sc) return;
-    sc.el.width  = sc.el.offsetWidth  * devicePixelRatio;
-    sc.el.height = sc.el.offsetHeight * devicePixelRatio;
-  });
-});
-
-function drawStemCanvas(key) {
-  const sc = stemCanvases[key];
-  if (!sc) return;
-  const { el, ctx } = sc;
-  const w = el.width, h = el.height;
-  const s = stemData[key];
-  ctx.clearRect(0, 0, w, h);
-
-  const isActive = s.active;
-  const strokeColor = isActive ? 'rgba(245,240,232,0.7)' : 'rgba(45,90,61,0.35)';
-  const fillColor   = isActive ? 'rgba(245,240,232,0.15)' : 'rgba(45,90,61,0.06)';
-
-  if (!s.analyser || !isPlaying) {
-    // idle sine placeholder
-    ctx.beginPath();
-    ctx.moveTo(0, h / 2);
-    for (let x = 0; x <= w; x += 2) {
-      ctx.lineTo(x, h / 2 + Math.sin((x / w) * Math.PI * 3 + Date.now() * 0.001) * (h * 0.18));
-    }
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1 * devicePixelRatio;
-    ctx.stroke();
-    return;
-  }
-
-  const vals = s.analyser.getValue();
-  const usable = Math.floor(vals.length * 0.65);
-  const pts = [];
-  for (let i = 0; i < usable; i++) {
-    pts.push([(i / usable) * w, h - Math.max(0, (vals[i] + 100) / 100) * h * 0.92 - h * 0.02]);
-  }
-  if (pts.length < 2) return;
-
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length - 1; i++) {
-    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i+1][0]) / 2, (pts[i][1] + pts[i+1][1]) / 2);
-  }
-  ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]);
-  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
-  ctx.fillStyle = fillColor;
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length - 1; i++) {
-    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i+1][0]) / 2, (pts[i][1] + pts[i+1][1]) / 2);
-  }
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = 1.2 * devicePixelRatio;
-  ctx.stroke();
-}
-
-// Animate all stem canvases every frame
-function animateStemCanvases() {
-  STEMS.forEach(k => drawStemCanvas(k));
-  requestAnimationFrame(animateStemCanvases);
-}
-animateStemCanvases();
-
-// (WaveShaper helper removed — no longer used)
+function setStatus(msg){ document.getElementById('player-status').textContent = msg; }
 
 async function initAudio() {
   if (initInProgress || isReady) return isReady;
@@ -597,128 +422,84 @@ async function initAudio() {
   setStatus('· starting audio context ·');
 
   try {
+    // Step 1: unlock AudioContext (MUST be in click handler call stack)
     await Tone.start();
     setStatus('· loading stems ·');
 
-    // Master bus
+    // Step 2: build master bus with compressor + limiter to prevent clipping
+    // Mirrors v1's DynamicsCompressor: threshold -18, knee 8, ratio 4, attack 3ms, release 250ms
     const masterLimiter    = new Tone.Limiter(-3).toDestination();
     const masterCompressor = new Tone.Compressor({
-      threshold: -18, knee: 8, ratio: 4, attack: 0.003, release: 0.25,
+      threshold: -18,
+      knee:       8,
+      ratio:      4,
+      attack:     0.003,
+      release:    0.25,
     }).connect(masterLimiter);
     const masterBus = new Tone.Gain(0.72).connect(masterCompressor);
     toneAnalyser = new Tone.Analyser('fft', 2048);
     masterBus.connect(toneAnalyser);
 
-    // Pre-generate convolution reverbs
-    const revMarket = new Tone.Reverb({ decay: 3.5, preDelay: 0.02 });
-    await revMarket.generate();
+    // Step 3: pre-generate IR reverbs (must happen before Tone.loaded())
+    const revSnow = new Tone.Reverb({ decay:3.0, preDelay:0.01 });
+    const revTemp = new Tone.Reverb({ decay:2.0, preDelay:0.01 });
+    await Promise.all([revSnow.generate(), revTemp.generate()]);
 
-    // Stem routing helper
-    // player → dryGain ↘
-    // player → fx chain → wetGain → masterGain → masterBus
-    //          dryGain ↗
+    // Step 4: build each stem's routing
+    // Pattern: player → dryGain ↘
+    //          player → fx chain → wetGain → masterGain → masterBus
+    //                              dryGain ↗
+
     function makeStemRouting(key, fxNodes) {
       const s = stemData[key];
       s.masterGain = new Tone.Gain(1).connect(masterBus);
       s.dryGain    = new Tone.Gain(1).connect(s.masterGain);
       s.wetGain    = new Tone.Gain(0).connect(s.masterGain);
-      s.player     = new Tone.Player({ url: 'stems_for_player/' + key + '_dry.mp3', loop: true, autostart: false });
+      s.player     = new Tone.Player({ url:'stems_for_player/'+key+'_dry.mp3', loop:true, autostart:false });
+      // dry
       s.player.connect(s.dryGain);
+      // wet: chain through fx manually
       let node = s.player;
-      fxNodes.forEach(fx => { node.connect(fx); node = fx; });
+      fxNodes.forEach(fx => { const next = fx; node.connect(next); node = next; });
       node.connect(s.wetGain);
-      // Per-stem FFT analyser — tapped from masterGain so we see the actual output
-      s.analyser = new Tone.Analyser('fft', 512);
-      s.masterGain.connect(s.analyser);
     }
 
-    // ────────────────────────────────────────────────────────────
-    // SUBWAY — drums: UNCHANGED
-    // BitCrusher → Filter → FeedbackDelay
-    // ────────────────────────────────────────────────────────────
+    // SUBWAY — drums: bitcrusher → filter → feedback delay
     stemData.subway.fx.bits   = new Tone.BitCrusher(8);
-    stemData.subway.fx.filter = new Tone.Filter({ frequency: 2000, type: 'lowpass' });
-    stemData.subway.fx.delay  = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.2, wet: 0.5 });
+    stemData.subway.fx.filter = new Tone.Filter({ frequency:2000, type:'lowpass' });
+    stemData.subway.fx.delay  = new Tone.FeedbackDelay({ delayTime:'8n', feedback:0.2, wet:0.5 });
     makeStemRouting('subway', [stemData.subway.fx.bits, stemData.subway.fx.filter, stemData.subway.fx.delay]);
 
-    // ────────────────────────────────────────────────────────────
-    // SNOW — lead
-    // AutoWah → PingPongDelay → Vibrato
-    //
-    // AutoWah: envelope follower — responds to lead transients.
-    //   More precipitation = darker/wetter wah (lower base freq, higher sensitivity).
-    // PingPongDelay: precipitation drives feedback and wet.
-    //   Dry at 0 precip, washy stereo trails at heavy precipitation.
-    //   Delay time locked to 8n for musical bounce.
-    // Vibrato: depth + rate increase with precipitation intensity.
-    // ────────────────────────────────────────────────────────────
-    stemData.snow.fx.wah     = new Tone.AutoWah({ baseFrequency: 100, octaves: 3, sensitivity: -20, Q: 2, gain: 2, wet: 0.8 });
-    stemData.snow.fx.ping    = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.1, wet: 0.0 });
-    stemData.snow.fx.vibrato = new Tone.Vibrato({ frequency: 4, depth: 0.1, wet: 0.6 });
-    makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.ping, stemData.snow.fx.vibrato]);
+    // SNOW — lead: tremolo → reverb → filter
+    stemData.snow.fx.tremolo = new Tone.Tremolo({ frequency:4, depth:0.3 }).start();
+    stemData.snow.fx.reverb  = revSnow;
+    stemData.snow.fx.filter  = new Tone.Filter({ frequency:2000, type:'lowpass' });
+    const snowLFO = new Tone.LFO({ frequency:2, min:400, max:2200 });
+    snowLFO.connect(stemData.snow.fx.filter.frequency);
+    snowLFO.start();
+    stemData.snow.fx.lfo = snowLFO;
+    makeStemRouting('snow', [stemData.snow.fx.tremolo, stemData.snow.fx.reverb, stemData.snow.fx.filter]);
 
-    // ────────────────────────────────────────────────────────────
-    // TEMP — lead
-    // Chebyshev → Chorus → Reverb
-    //
-    // Chebyshev: harmonic color. Cold = order 1 (clean fundamental).
-    //   Warm = order 20 (rich harmonics, not harsh). Wet also scales.
-    //   Capped at 20 (not 50) — keeps it musical, removes harshness.
-    // Chorus: depth scales with warmth. Cold = tight, warm = lush.
-    // Reverb: returns. Cold = tight room, warm = open space.
-    //   Full cold/warm story: sparse+tight → harmonic+lush+spacious.
-    // ────────────────────────────────────────────────────────────
-    const revTemp = new Tone.Reverb({ decay: 2.5, preDelay: 0.01 });
-    await revTemp.generate();
-    stemData.temp.fx.cheby  = new Tone.Chebyshev(1);
-    stemData.temp.fx.chorus = new Tone.Chorus({ frequency: 2, delayTime: 2.5, depth: 0.15, wet: 0.3 }).start();
+    // TEMP — lead: distortion → chorus → reverb
+    stemData.temp.fx.dist   = new Tone.Distortion({ distortion:0.2, wet:0.8 });
+    stemData.temp.fx.chorus = new Tone.Chorus({ frequency:2, delayTime:2.5, depth:0.4, wet:0.5 }).start();
     stemData.temp.fx.reverb = revTemp;
-    makeStemRouting('temp', [stemData.temp.fx.cheby, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
+    makeStemRouting('temp', [stemData.temp.fx.dist, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
 
-    // ────────────────────────────────────────────────────────────
-    // WIND — bass: NEW
-    // Filter → Distortion
-    //
-    // Removed: Phaser, AutoPanner
-    // Added: Distortion — wind grit. Low wind = clean filtered bass.
-    //   High wind = driven, gnarly low end. Feels physical, like wind pressure.
-    //   WaveShaper-style overdrive via Tone.Distortion (soft knee).
-    // ────────────────────────────────────────────────────────────
-    stemData.wind.fx.filter = new Tone.Filter({ frequency: 800, type: 'lowpass' });
-    stemData.wind.fx.dist   = new Tone.Distortion({ distortion: 0.0, wet: 0.0 });
-    makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.dist]);
+    // WIND — bass: filter → phaser → autopanner
+    stemData.wind.fx.filter  = new Tone.Filter({ frequency:800, type:'lowpass' });
+    stemData.wind.fx.phaser  = new Tone.Phaser({ frequency:0.5, octaves:3, baseFrequency:350 });
+    stemData.wind.fx.panner  = new Tone.AutoPanner({ frequency:0.5, depth:0.7 }).start();
+    makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.phaser, stemData.wind.fx.panner]);
 
-    // ────────────────────────────────────────────────────────────
-    // MARKET — keys  |  source: BTC-USD via Coinbase WebSocket (delta)
-    // Tremolo → Reverb
-    //
-    // FrequencyShifter removed — pitch deviation sounds bad in isolation.
-    // Tremolo: BTC 60s delta drives amplitude flutter rate and depth.
-    //   Flat market (norm ~0.5) = slow/subtle tremolo.
-    //   Strong up or down move = faster, deeper flutter — market restlessness
-    //   becomes physical amplitude movement. Rate = abs(delta) from centre.
-    // Reverb: delta magnitude also drives space. Calm = dry, volatile = vast.
-    // ────────────────────────────────────────────────────────────
-    stemData.market.fx.tremolo = new Tone.Tremolo({ frequency: 2, depth: 0.0, wet: 0.0 }).start();
-    stemData.market.fx.reverb  = revMarket;
-    makeStemRouting('market', [stemData.market.fx.tremolo, stemData.market.fx.reverb]);
+    // MARKET — keys: pingpong → widener
+    stemData.market.fx.ping   = new Tone.PingPongDelay({ delayTime:'8n', feedback:0.3, wet:0.4 });
+    stemData.market.fx.wide   = new Tone.StereoWidener(0.5);
+    makeStemRouting('market', [stemData.market.fx.ping, stemData.market.fx.wide]);
 
+    // Step 5: wait for ALL audio buffers to finish loading
     setStatus('· buffering audio ·');
-
-    // Log each player's load state for debugging
-    STEMS.forEach(k => {
-      const p = stemData[k].player;
-      if (p && p.buffer) {
-        p.buffer.onload  = () => console.log(`✓ loaded: ${k}`);
-        p.buffer.onerror = (e) => console.error(`✗ failed: ${k}`, e);
-      }
-    });
-
-    // Tone.loaded() can hang forever if a file 404s — add a 15s timeout
-    await Promise.race([
-      Tone.loaded(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Audio load timeout — check stem file paths')), 15000))
-    ]);
+    await Tone.loaded();
 
     isReady = true;
     initInProgress = false;
@@ -734,173 +515,133 @@ async function initAudio() {
 }
 
 function startAll() {
-  const t = Tone.now() + 0.05;
+  const t = Tone.now() + 0.05; // slight buffer
   STEMS.forEach(k => {
-    if (stemData[k].player && stemData[k].player.loaded) stemData[k].player.start(t);
+    if (stemData[k].player && stemData[k].player.loaded) {
+      stemData[k].player.start(t);
+    }
   });
 }
 function stopAll() {
-  STEMS.forEach(k => { try { stemData[k].player && stemData[k].player.stop(); } catch(e){} });
+  STEMS.forEach(k => {
+    try { stemData[k].player && stemData[k].player.stop(); } catch(e){}
+  });
 }
 
-// ══════════════════════════════════════════════════════════════════
-// MODULATION LOOP — runs every 100ms
-// Each active stem's effects are driven by its live data norm (0–1).
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
+// MODULATION LOOP
+// ══════════════════════════════════════
+// live fx values for the panel
 const fxDisplay = {
-  subway: { bits: 8,    filter: 2000, feedback: 20 },
-  snow:   { wah: 100,   ping: 0,      vibrato: 10  },
-  temp:   { cheby: 1,   chorus: 15,   reverb: 5    },
-  wind:   { filter: 800, dist: 0 },
-  market: { tremolo: 0.5, reverb: 5 },
+  subway: { bits:8, filter:2000, feedback:20 },
+  snow:   { tremolo:30, lfo:2 },
+  temp:   { dist:20, chorus:40, reverb:40 },
+  wind:   { filter:800, pan:0.5 },
+  market: { feedback:30, width:50 },
 };
 
 function runModulation() {
   if (!isReady) return;
   const now = Tone.now();
 
-  // SUBWAY — unchanged from original
+  // SUBWAY
   if (stemData.subway.active) {
     const v = liveData.subway.norm;
     const bits = Math.round(8 - v * 5);
     stemData.subway.fx.bits.bits = bits;
-    stemData.subway.fx.filter.frequency.setTargetAtTime(300 + v * 3500, now, 0.15);
-    stemData.subway.fx.delay.feedback.setTargetAtTime(0.1 + v * 0.55, now, 0.15);
+    stemData.subway.fx.filter.frequency.setTargetAtTime(300 + v*3500, now, 0.15);
+    stemData.subway.fx.delay.feedback.setTargetAtTime(0.1 + v*0.55, now, 0.15);
     fxDisplay.subway.bits     = bits;
-    fxDisplay.subway.filter   = Math.round(300 + v * 3500);
-    fxDisplay.subway.feedback = Math.round((0.1 + v * 0.55) * 100);
+    fxDisplay.subway.filter   = Math.round(300 + v*3500);
+    fxDisplay.subway.feedback = Math.round((0.1+v*0.55)*100);
   }
 
-  // SNOW — autowah + pingpong + vibrato
+  // SNOW
   if (stemData.snow.active) {
     const v = liveData.snow.norm;
-
-    // AutoWah: more precipitation = darker wah (lower base freq) + higher sensitivity
-    stemData.snow.fx.wah.baseFrequency = 80 + (1 - v) * 300;
-    stemData.snow.fx.wah.sensitivity   = -30 + v * 20;
-    stemData.snow.fx.wah.wet.setTargetAtTime(0.3 + v * 0.7, now, 0.2);
-
-    // PingPong: dry at 0, washy stereo trails at heavy precipitation
-    stemData.snow.fx.ping.feedback.setTargetAtTime(0.05 + v * 0.55, now, 0.25);
-    stemData.snow.fx.ping.wet.setTargetAtTime(v * 0.7, now, 0.25);
-
-    // Vibrato: depth + rate increase with precipitation
-    stemData.snow.fx.vibrato.depth.setTargetAtTime(0.05 + v * 0.4, now, 0.25);
-    stemData.snow.fx.vibrato.frequency.setTargetAtTime(2 + v * 8, now, 0.25);
-
-    fxDisplay.snow.wah     = Math.round(80 + (1 - v) * 300);
-    fxDisplay.snow.ping    = Math.round(v * 70);
-    fxDisplay.snow.vibrato = Math.round((0.05 + v * 0.4) * 100);
+    stemData.snow.fx.tremolo.depth.setTargetAtTime(0.1 + v*0.9, now, 0.2);
+    stemData.snow.fx.lfo.frequency.setTargetAtTime(0.5 + v*10, now, 0.2);
+    fxDisplay.snow.tremolo = Math.round((0.1+v*0.9)*100);
+    fxDisplay.snow.lfo     = +(0.5+v*10).toFixed(1);
   }
 
-  // TEMP — chebyshev + chorus + reverb
+  // TEMP
   if (stemData.temp.active) {
     const v = liveData.temp.norm;
-
-    // Chebyshev: cold = order 1 (clean), warm = order 20 (harmonic color, not harsh)
-    const order = Math.max(1, Math.round(1 + v * 19));
-    stemData.temp.fx.cheby.order = order;
-    stemData.temp.fx.cheby.wet.setTargetAtTime(0.05 + v * 0.7, now, 0.4);
-
-    // Chorus: warm = lush
-    stemData.temp.fx.chorus.depth = 0.05 + v * 0.75;
-    stemData.temp.fx.chorus.wet.setTargetAtTime(0.1 + v * 0.6, now, 0.3);
-
-    // Reverb: cold = tight room, warm = open space
-    stemData.temp.fx.reverb.wet.setTargetAtTime(0.05 + v * 0.65, now, 0.5);
-
-    fxDisplay.temp.cheby  = order;
-    fxDisplay.temp.chorus = Math.round((0.05 + v * 0.75) * 100);
-    fxDisplay.temp.reverb = Math.round((0.05 + v * 0.65) * 100);
+    stemData.temp.fx.dist.distortion   = 0.05 + v*0.75;
+    stemData.temp.fx.chorus.depth       = 0.2  + v*0.8;
+    stemData.temp.fx.reverb.wet.setTargetAtTime(0.1 + v*0.7, now, 0.3);
+    fxDisplay.temp.dist   = Math.round((0.05+v*0.75)*100);
+    fxDisplay.temp.chorus = Math.round((0.2+v*0.8)*100);
+    fxDisplay.temp.reverb = Math.round((0.1+v*0.7)*100);
   }
 
-  // WIND — filter + distortion
+  // WIND
   if (stemData.wind.active) {
     const v = liveData.wind.norm;
-
-    // Filter opens up as wind rises (more high freq = more aggression)
-    stemData.wind.fx.filter.frequency.setTargetAtTime(100 + v * 3500, now, 0.2);
-
-    // Distortion: zero at calm, driven at high wind
-    stemData.wind.fx.dist.distortion = v * 0.85;
-    stemData.wind.fx.dist.wet.setTargetAtTime(v * 0.9, now, 0.2);
-
-    fxDisplay.wind.filter = Math.round(100 + v * 3500);
-    fxDisplay.wind.dist   = Math.round(v * 100);
+    stemData.wind.fx.filter.frequency.setTargetAtTime(100 + v*3000, now, 0.2);
+    stemData.wind.fx.panner.frequency.setTargetAtTime(0.1 + v*5, now, 0.2);
+    fxDisplay.wind.filter = Math.round(100+v*3000);
+    fxDisplay.wind.pan    = +(0.1+v*5).toFixed(1);
   }
 
-  // MARKET — tremolo + reverb (BTC-USD 60s delta via WebSocket)
+  // MARKET
   if (stemData.market.active) {
-    const v = liveData.market.norm; // 0.5 = flat, 0/1 = full move
-
-    // Distance from centre = volatility magnitude (0=calm, 1=max delta)
-    const magnitude = Math.abs(v - 0.5) * 2;
-
-    // Tremolo: flat market = slow subtle flutter at 50% wet.
-    // Strong move (either direction) = fast deep flutter at full wet.
-    // Rate 1Hz at rest → 8Hz max. Depth 0.15 → 0.85. Wet 0.5 → 1.0.
-    stemData.market.fx.tremolo.frequency.setTargetAtTime(1 + magnitude * 7, now, 0.3);
-    stemData.market.fx.tremolo.depth.setTargetAtTime(0.15 + magnitude * 0.7, now, 0.3);
-    stemData.market.fx.tremolo.wet.setTargetAtTime(0.5 + magnitude * 0.5, now, 0.3);
-
-    // Reverb: flat market = 50% wet. Volatile = full wet.
-    // rampTo required — Tone.Reverb wet does not support setTargetAtTime
-    const targetRevWet = 0.5 + magnitude * 0.5;
-    stemData.market.fx.reverb.wet.rampTo(targetRevWet, 0.5);
-
-    fxDisplay.market.tremolo = +(1 + magnitude * 7).toFixed(1);
-    fxDisplay.market.reverb  = Math.round(targetRevWet * 100);
+    const v = liveData.market.norm;
+    stemData.market.fx.ping.feedback.setTargetAtTime(0.1 + v*0.6, now, 0.15);
+    stemData.market.fx.wide.width.setTargetAtTime(0.1 + v*0.9, now, 0.15);
+    fxDisplay.market.feedback = Math.round((0.1+v*0.6)*100);
+    fxDisplay.market.width    = Math.round((0.1+v*0.9)*100);
   }
 
   refreshFxPanel();
 }
 setInterval(runModulation, 100);
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // FX PANEL
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 let fxPanelKey = null;
-const fxPanel      = document.getElementById('fx-panel');
+const fxPanel = document.getElementById('fx-panel');
 const fxPanelTitle = document.getElementById('fx-panel-title');
-const fxPanelBody  = document.getElementById('fx-panel-body');
+const fxPanelBody = document.getElementById('fx-panel-body');
 
 const fxPanelConfig = {
   subway: {
     title: 'L Train Delay → Drums',
     rows: [
-      { id:'bits',     label:'Bit Depth',      unit:'bits', normFn: v => (8-v)/5 },
-      { id:'filter',   label:'Filter Cutoff',  unit:'Hz',   normFn: v => (v-300)/3500 },
-      { id:'feedback', label:'Delay Feedback', unit:'%',    normFn: v => (v-10)/55 },
+      { id:'bits',     label:'Bit Depth',      unit:'bits', src:'L Train delay (min)', normFn: v => (8-v)/5 },
+      { id:'filter',   label:'Filter Cutoff',  unit:'Hz',   src:'L Train delay (min)', normFn: v => (v-300)/3500 },
+      { id:'feedback', label:'Delay Feedback', unit:'%',    src:'L Train delay (min)', normFn: v => (v-10)/55 },
     ]
   },
   snow: {
     title: 'Precipitation → Lead',
     rows: [
-      { id:'wah',     label:'Wah Base Freq',  unit:'Hz', normFn: v => Math.max(0, 1 - (v-80)/300) },
-      { id:'ping',    label:'Ping Pong Wet',  unit:'%',  normFn: v => v/70 },
-      { id:'vibrato', label:'Vibrato Depth',  unit:'%',  normFn: v => (v-5)/40 },
+      { id:'tremolo', label:'Tremolo Depth', unit:'%',  src:'Precipitation (mm/hr)', normFn: v => (v-10)/90 },
+      { id:'lfo',     label:'LFO Rate',      unit:'Hz', src:'Precipitation (mm/hr)', normFn: v => (v-0.5)/10 },
     ]
   },
   temp: {
     title: 'Temperature → Lead',
     rows: [
-      { id:'cheby',  label:'Chebyshev Order', unit:'',  normFn: v => (v-1)/19 },
-      { id:'chorus', label:'Chorus Depth',    unit:'%', normFn: v => (v-5)/75 },
-      { id:'reverb', label:'Reverb Wet',      unit:'%', normFn: v => (v-5)/65 },
+      { id:'dist',   label:'Distortion',    unit:'%', src:'Temperature (°F)', normFn: v => (v-5)/75 },
+      { id:'chorus', label:'Chorus Depth',  unit:'%', src:'Temperature (°F)', normFn: v => (v-20)/80 },
+      { id:'reverb', label:'Reverb Wet',    unit:'%', src:'Temperature (°F)', normFn: v => (v-10)/70 },
     ]
   },
   wind: {
     title: 'Wind Speed → Bass',
     rows: [
-      { id:'filter', label:'Filter Cutoff', unit:'Hz', normFn: v => (v-100)/3500 },
-      { id:'dist',   label:'Distortion',    unit:'%',  normFn: v => v/100 },
+      { id:'filter', label:'Filter Cutoff', unit:'Hz', src:'Wind speed (mph)', normFn: v => (v-100)/3000 },
+      { id:'pan',    label:'Pan Rate',      unit:'Hz', src:'Wind speed (mph)', normFn: v => (v-0.1)/5 },
     ]
   },
   market: {
-    title: 'BTC-USD 60s Delta → Keys',
+    title: 'VIX Volatility → Keys',
     rows: [
-      { id:'tremolo', label:'Tremolo Rate', unit:'Hz', normFn: v => (v-1)/7 },
-      { id:'reverb',  label:'Reverb Wet',  unit:'%',  normFn: v => (v-50)/50 },
+      { id:'feedback', label:'Delay Feedback', unit:'%', src:'VIX index', normFn: v => (v-10)/60 },
+      { id:'width',    label:'Stereo Width',   unit:'%', src:'VIX index', normFn: v => (v-10)/90 },
     ]
   }
 };
@@ -916,6 +657,7 @@ function openFxPanel(key) {
         <span class="fx-row-val" id="fxv-${key}-${r.id}">—</span>
       </div>
       <div class="fx-track"><div class="fx-fill" id="fxb-${key}-${r.id}" style="width:2%"></div></div>
+      <div class="fx-source">← ${r.src}</div>
       <div class="fx-data-val" id="fxd-${key}">Live: ${liveData[key].display}</div>
     </div>
   `).join('');
@@ -932,7 +674,7 @@ document.getElementById('fx-panel-close').addEventListener('click', closeFxPanel
 
 function refreshFxPanel() {
   if (!fxPanelKey) return;
-  const cfg  = fxPanelConfig[fxPanelKey];
+  const cfg = fxPanelConfig[fxPanelKey];
   const vals = fxDisplay[fxPanelKey];
   cfg.rows.forEach(r => {
     const vEl = document.getElementById(`fxv-${fxPanelKey}-${r.id}`);
@@ -947,18 +689,22 @@ function refreshFxPanel() {
   });
 }
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // PLAY BUTTON
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 document.getElementById('master-play-btn').addEventListener('click', async () => {
-  if (typeof Tone === 'undefined') { setStatus('· Tone.js not loaded ·'); return; }
-  const icon  = document.getElementById('play-icon');
+  if (typeof Tone === 'undefined') {
+    setStatus('· Tone.js not loaded · check network ·');
+    return;
+  }
+  const icon = document.getElementById('play-icon');
   const label = document.getElementById('play-label');
+
   if (!isReady) {
-    setStatus('· initialising · please wait ·');
     const ok = await initAudio();
     if (!ok) return;
   }
+
   if (isPlaying) {
     stopAll();
     icon.innerHTML = '<polygon points="0,0 10,6 0,12"/>';
@@ -974,15 +720,17 @@ document.getElementById('master-play-btn').addEventListener('click', async () =>
   }
 });
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // TILE INTERACTIONS
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 STEMS.forEach(key => {
   const tile  = document.getElementById('tile-' + key);
   const badge = document.getElementById('badge-' + key);
+
   tile.addEventListener('click', e => {
     if (e.target.classList.contains('stem-mute')) return;
     if (!isReady) { setStatus('· press play first ·'); return; }
+
     const s = stemData[key];
     if (s.active) {
       s.active = false;
@@ -990,7 +738,7 @@ STEMS.forEach(key => {
       s.wetGain.gain.rampTo(0, 0.35);
       tile.classList.remove('active');
       badge.textContent = 'dry';
-      const n = STEMS.filter(k => stemData[k].active).length;
+      const n = STEMS.filter(k=>stemData[k].active).length;
       setStatus(n ? `· ${n} stem${n>1?'s':''} data-active ·` : '· playing · blizzard 02.23.26 ·');
       if (fxPanelKey === key) closeFxPanel();
     } else {
@@ -999,20 +747,20 @@ STEMS.forEach(key => {
       s.wetGain.gain.rampTo(1, 0.35);
       tile.classList.add('active');
       badge.textContent = 'data active';
-      const n = STEMS.filter(k => stemData[k].active).length;
+      const n = STEMS.filter(k=>stemData[k].active).length;
       setStatus(`· ${n} stem${n>1?'s':''} data-active ·`);
       openFxPanel(key);
     }
   });
 });
 
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // MUTE
-// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════
 STEMS.forEach(key => {
   document.getElementById('mute-' + key).addEventListener('click', e => {
     e.stopPropagation();
-    const s   = stemData[key];
+    const s = stemData[key];
     const btn = e.currentTarget;
     s.muted = !s.muted;
     btn.textContent = s.muted ? 'unmute' : 'mute';
@@ -1021,6 +769,7 @@ STEMS.forEach(key => {
   });
 });
 
+// close panel on outside click
 document.addEventListener('click', e => {
   if (fxPanel.classList.contains('visible') &&
       !fxPanel.contains(e.target) &&
