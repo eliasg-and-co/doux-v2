@@ -509,10 +509,19 @@ async function initAudio() {
     makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.autoFilter, stemData.snow.fx.vibrato]);
 
     // TEMP — lead: PingPongDelay → Chorus → Reverb
-    stemData.temp.fx.ping   = new Tone.PingPongDelay({ delayTime:'8n', feedback:0.1, wet:0.0 });
-    stemData.temp.fx.chorus = new Tone.Chorus({ frequency:2, delayTime:2.5, depth:0.15, wet:0.3 }).start();
-    stemData.temp.fx.reverb = revTemp;
-    makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
+    stemData.temp.fx.ping     = new Tone.PingPongDelay({ delayTime:'8n', feedback:0.1, wet:0.0 });
+    stemData.temp.fx.chorus   = new Tone.Chorus({ frequency:2, delayTime:2.5, depth:0.15, wet:0.3 }).start();
+    stemData.temp.fx.reverb   = revTemp;
+    stemData.temp.fx.pumpGain = new Tone.Gain(1);
+    stemData.temp.fx.pumpLfo  = new Tone.LFO({
+      type:      'sawtooth',
+      frequency: TRACK_BPM / 60,  // quarter note: 127/60 = 2.117 Hz
+      min:       0.85,
+      max:       1.0,
+      phase:     270,             // drop lands on downbeat
+    }).start();
+    stemData.temp.fx.pumpLfo.connect(stemData.temp.fx.pumpGain.gain);
+    makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.reverb, stemData.temp.fx.pumpGain]);
 
     // WIND — bass: Filter → Distortion
     stemData.wind.fx.filter = new Tone.Filter({ frequency:800, type:'lowpass' });
@@ -577,7 +586,7 @@ function stopAll() {
 const fxDisplay = {
   subway: { bits:8,   filter:2000, feedback:20 },
   snow:   { wah:200,  autoFilter:0, vibrato:4  },
-  temp:   { ping:0,   chorus:15,   reverb:5   },
+  temp:   { ping:0,   chorus:15,   reverb:5,  pump:8 },
   wind:   { filter:800, dist:0 },
   market: { shift:'0.0', tremolo:1 },
   time:   { hipass:1200, bits:8 },
@@ -622,9 +631,12 @@ function runModulation() {
     stemData.temp.fx.chorus.depth = 0.05 + v*0.75;
     stemData.temp.fx.chorus.wet.setTargetAtTime(0.1 + v*0.6, now, 0.3);
     stemData.temp.fx.reverb.wet.rampTo(0.05 + v*0.65, 0.5); // rampTo required for convolution reverb
+    // pump depth: cold (v=0) = barely pumping (min=0.92), hot (v=1) = heavy duck (min=0.05)
+    stemData.temp.fx.pumpLfo.min = 1 - (0.08 + v*0.87);
     fxDisplay.temp.ping   = Math.round(v*70);
     fxDisplay.temp.chorus = Math.round((0.05+v*0.75)*100);
     fxDisplay.temp.reverb = Math.round((0.05+v*0.65)*100);
+    fxDisplay.temp.pump   = Math.round((0.08+v*0.87)*100);
   }
 
   // WIND — filter + distortion
@@ -756,6 +768,7 @@ const fxPanelConfig = {
       { id:'ping',   label:'Ping Pong Wet', unit:'%', src:'Temperature', normFn: v => v/70 },
       { id:'chorus', label:'Chorus Depth',  unit:'%', src:'Temperature', normFn: v => (v-5)/75 },
       { id:'reverb', label:'Reverb Wet',    unit:'%', src:'Temperature', normFn: v => (v-5)/65 },
+      { id:'pump',   label:'Pump Depth',    unit:'%', src:'Temperature', normFn: v => v/100 },
     ]
   },
   wind: {
