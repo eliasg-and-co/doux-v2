@@ -515,13 +515,13 @@ async function initAudio() {
     stemData.temp.fx.pumpGain = new Tone.Gain(1);
     stemData.temp.fx.pumpLfo  = new Tone.LFO({
       type:      'sawtooth',
-      frequency: TRACK_BPM / 60,  // quarter note: 127/60 = 2.117 Hz
+      frequency: TRACK_BPM / 60 / 2,  // half note: 127/60/2 = 1.058 Hz
       min:       0.85,
       max:       1.0,
       phase:     270,             // drop lands on downbeat
     }).start();
     stemData.temp.fx.pumpLfo.connect(stemData.temp.fx.pumpGain.gain);
-    makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.reverb, stemData.temp.fx.pumpGain]);
+    makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.pumpGain, stemData.temp.fx.reverb]);
 
     // WIND — bass: Filter → Distortion
     stemData.wind.fx.filter = new Tone.Filter({ frequency:800, type:'lowpass' });
