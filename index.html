@@ -215,12 +215,12 @@
       <button class="stem-mute" id="mute-wind">mute</button>
     </div>
 
-    <!-- MARKET — now BTC: freqshift (±1 semitone) · reverb -->
+    <!-- MARKET — now BTC: tremolo (delta) · reverb -->
     <div class="stem-tile" id="tile-market" data-stem="market" data-param="BTC Price">
       <div class="stem-state-badge" id="badge-market">dry</div>
       <div class="stem-source">Markets · BTC-USD</div>
       <div class="stem-param">BTC Price</div>
-      <div class="stem-target">→ keys · freq shift · reverb</div>
+      <div class="stem-target">→ keys · tremolo · reverb</div>
       <div class="stem-mini-wave" style="--spd:0.32s">
         <span style="height:30%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:25%"></span><span style="height:80%"></span><span style="height:35%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:25%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:80%"></span>
       </div>
@@ -269,7 +269,7 @@
 
 // ── TRACK BPM — set this to your actual track BPM ─────────────────
 // Used to lock AutoFilter LFO to musical time on the snow stem.
-const TRACK_BPM = 127; // ← change to your track's BPM
+const TRACK_BPM = 127; // blizzard 02.23.26
 
 if (typeof Tone === 'undefined') {
   document.getElementById('player-status').textContent = '· Tone.js failed to load — check network ·';
@@ -391,19 +391,43 @@ fetchMTA();
 setInterval(fetchMTA, 60000);
 
 // ══════════════════════════════════════════════════════════════════
-// COINBASE WEBSOCKET — BTC-USD tick-by-tick
-// Replaces: fetchVIX() + /api/vix serverless function (no longer needed)
+// COINBASE WEBSOCKET — BTC-USD tick-by-tick, DELTA-based normalization
 //
-// Normalization: maps BTC price to 0–1 for effect depth.
-// Range $60K–$110K covers typical trading band; adjust if BTC moves out of range.
-// Centre point ~$85K = 0.5 norm (neutral effect depth).
+// Instead of mapping absolute price to effects (which is static and
+// unresponsive to actual market behaviour), we track the 60-second
+// price delta — how much BTC has moved in the last minute.
 //
-// FrequencyShifter range: norm 0.0 = -1 semitone, 0.5 = 0 (no shift), 1.0 = +1 semitone
-// This keeps the keys stem in key — BTC just tunes it slightly sharp or flat.
+// Norm 0.5 = no net movement (neutral effects)
+// Norm > 0.5 = price rising (effects push positive direction)
+// Norm < 0.5 = price falling (effects push negative direction)
+//
+// BTC_DELTA_SENSITIVITY = $1500: a $1500 move in 60s = full deflection (0 or 1).
+// Typical BTC moves $100–$500/min, so this gives a responsive but not
+// maxed-out range during normal trading. Volatile sessions will hit the extremes.
+//
+// Display shows: current price + delta arrow + delta amount
+// e.g. "$83,420 ↑ +$340"
 // ══════════════════════════════════════════════════════════════════
-let btcLastPrice = null;
-const BTC_MIN = 60000;
-const BTC_MAX = 110000;
+const BTC_DELTA_SENSITIVITY = 1500; // $1500 move in 60s = full effect range
+const btcHistory = [];              // rolling price history: [{ price, time }, ...]
+let btcCurrentPrice = null;
+
+function computeBtcDeltaNorm() {
+  if (btcHistory.length < 2) return 0.5; // neutral until we have history
+  const now = Date.now();
+  // Find the oldest entry within the last 60 seconds
+  const ref = btcHistory.find(p => p.time >= now - 60000);
+  if (!ref) return 0.5;
+  const delta = btcCurrentPrice - ref.price;
+  // Map delta to 0–1: centre at 0.5, ±sensitivity = full deflection
+  return Math.max(0, Math.min(1, 0.5 + delta / (BTC_DELTA_SENSITIVITY * 2)));
+}
+
+function formatBtcDelta(delta) {
+  if (delta === 0) return '→ $0';
+  const arrow = delta > 0 ? '↑' : '↓';
+  return `${arrow} ${delta > 0 ? '+' : ''}$${Math.round(delta).toLocaleString()}`;
+}
 
 function connectCoinbase() {
   let ws;
@@ -428,30 +452,38 @@ function connectCoinbase() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      // Coinbase Advanced Trade WS wraps ticker events like this:
-      // { channel: 'ticker', events: [{ tickers: [{ price: '...' }] }] }
       if (msg.channel === 'ticker' && msg.events?.[0]?.tickers?.[0]) {
         const price = parseFloat(msg.events[0].tickers[0].price);
         if (isNaN(price)) return;
 
-        const norm = Math.max(0, Math.min(1, (price - BTC_MIN) / (BTC_MAX - BTC_MIN)));
-        const dir = btcLastPrice !== null ? (price > btcLastPrice ? 'up' : price < btcLastPrice ? 'down' : '') : '';
-        btcLastPrice = price;
+        const prevPrice = btcCurrentPrice;
+        btcCurrentPrice = price;
+
+        // Add to rolling history, prune entries older than 90s
+        btcHistory.push({ price, time: Date.now() });
+        const cutoff = Date.now() - 90000;
+        while (btcHistory.length && btcHistory[0].time < cutoff) btcHistory.shift();
+
+        // Compute delta vs 60s ago
+        const ref60 = btcHistory.find(p => p.time >= Date.now() - 60000);
+        const delta60 = ref60 ? price - ref60.price : 0;
+        const norm = computeBtcDeltaNorm();
+        const dir = prevPrice !== null ? (price > prevPrice ? 'up' : price < prevPrice ? 'down' : '') : '';
 
         liveData.market = {
           norm,
-          display: '$' + Math.round(price).toLocaleString(),
+          display: `$${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)}`,
+          delta: delta60,
+          raw: price,
           label: 'BTC-USD',
-          raw: price
         };
 
-        // Update badge in footer
-        const badge = document.getElementById('btc-live-badge');
+        // Footer badge
+        const badge   = document.getElementById('btc-live-badge');
         const readout = document.getElementById('btc-readout');
-        readout.textContent = `· BTC $${Math.round(price).toLocaleString()} ·`;
+        readout.textContent = `· BTC $${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)} ·`;
         if (dir) {
           badge.className = 'btc-live-badge ' + dir;
-          // Flash direction colour then fade back
           setTimeout(() => badge.className = 'btc-live-badge', 800);
         }
       }
@@ -552,18 +584,21 @@ async function initAudio() {
 
     // ────────────────────────────────────────────────────────────
     // TEMP — lead
-    // Chebyshev → Chorus
+    // Chebyshev → Chorus → Reverb
     //
-    // Chebyshev: harmonic distortion via Chebyshev polynomials.
-    //   Cold (low norm) = order 1 → nearly clean, just fundamental.
-    //   Warm (high norm) = order 50 → dense harmonic overtones, complex texture.
-    //   This is the most dramatic cold/warm contrast available in Tone.js —
-    //   the timbre transforms completely from sparse to rich.
-    // Chorus: depth also driven by temperature. Cold = tight/dry, warm = lush.
+    // Chebyshev: harmonic color. Cold = order 1 (clean fundamental).
+    //   Warm = order 20 (rich harmonics, not harsh). Wet also scales.
+    //   Capped at 20 (not 50) — keeps it musical, removes harshness.
+    // Chorus: depth scales with warmth. Cold = tight, warm = lush.
+    // Reverb: returns. Cold = tight room, warm = open space.
+    //   Full cold/warm story: sparse+tight → harmonic+lush+spacious.
     // ────────────────────────────────────────────────────────────
-    stemData.temp.fx.cheby  = new Tone.Chebyshev(1); // order 1 = clean start
+    const revTemp = new Tone.Reverb({ decay: 2.5, preDelay: 0.01 });
+    await revTemp.generate();
+    stemData.temp.fx.cheby  = new Tone.Chebyshev(1);
     stemData.temp.fx.chorus = new Tone.Chorus({ frequency: 2, delayTime: 2.5, depth: 0.15, wet: 0.3 }).start();
-    makeStemRouting('temp', [stemData.temp.fx.cheby, stemData.temp.fx.chorus]);
+    stemData.temp.fx.reverb = revTemp;
+    makeStemRouting('temp', [stemData.temp.fx.cheby, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
 
     // ────────────────────────────────────────────────────────────
     // WIND — bass: NEW
@@ -579,19 +614,19 @@ async function initAudio() {
     makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.dist]);
 
     // ────────────────────────────────────────────────────────────
-    // MARKET — keys  |  source: BTC-USD via Coinbase WebSocket
-    // FrequencyShifter → Reverb
+    // MARKET — keys  |  source: BTC-USD via Coinbase WebSocket (delta)
+    // Tremolo → Reverb
     //
-    // FrequencyShifter: ±1 semitone max (±26Hz at A4=440).
-    //   BTC price navigates through this range — market moves the pitch
-    //   slightly sharp or flat without breaking key.
-    // Reverb: BTC level drives decay and wet mix.
-    //   Low BTC = tight/dry room. High BTC = long cavernous tail.
-    //   The market literally spaces out the keys stem.
+    // FrequencyShifter removed — pitch deviation sounds bad in isolation.
+    // Tremolo: BTC 60s delta drives amplitude flutter rate and depth.
+    //   Flat market (norm ~0.5) = slow/subtle tremolo.
+    //   Strong up or down move = faster, deeper flutter — market restlessness
+    //   becomes physical amplitude movement. Rate = abs(delta) from centre.
+    // Reverb: delta magnitude also drives space. Calm = dry, volatile = vast.
     // ────────────────────────────────────────────────────────────
-    stemData.market.fx.freqShift = new Tone.FrequencyShifter(0);
-    stemData.market.fx.reverb    = revMarket;
-    makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.reverb]);
+    stemData.market.fx.tremolo = new Tone.Tremolo({ frequency: 2, depth: 0.0, wet: 0.0 }).start();
+    stemData.market.fx.reverb  = revMarket;
+    makeStemRouting('market', [stemData.market.fx.tremolo, stemData.market.fx.reverb]);
 
     setStatus('· buffering audio ·');
     await Tone.loaded();
@@ -624,11 +659,11 @@ function stopAll() {
 // Each active stem's effects are driven by its live data norm (0–1).
 // ══════════════════════════════════════════════════════════════════
 const fxDisplay = {
-  subway: { bits: 8,   filter: 2000, feedback: 20 },
-  snow:   { wah: 100,  ping: 0, vibrato: 10 },
-  temp:   { cheby: 1,  chorus: 15 },
+  subway: { bits: 8,    filter: 2000, feedback: 20 },
+  snow:   { wah: 100,   ping: 0,      vibrato: 10  },
+  temp:   { cheby: 1,   chorus: 15,   reverb: 5    },
   wind:   { filter: 800, dist: 0 },
-  market: { shift: 0,  reverb: 10 },
+  market: { tremolo: 0.5, reverb: 5 },
 };
 
 function runModulation() {
@@ -669,22 +704,25 @@ function runModulation() {
     fxDisplay.snow.vibrato = Math.round((0.05 + v * 0.4) * 100);
   }
 
-  // TEMP — chebyshev + chorus
+  // TEMP — chebyshev + chorus + reverb
   if (stemData.temp.active) {
     const v = liveData.temp.norm;
 
-    // Chebyshev order: cold (v=0) = order 1 (clean), warm (v=1) = order 50 (dense harmonics).
-    // Integer orders only — round to nearest. The jump between orders is audible and intentional.
-    const order = Math.max(1, Math.round(1 + v * 49));
+    // Chebyshev: cold = order 1 (clean), warm = order 20 (harmonic color, not harsh)
+    const order = Math.max(1, Math.round(1 + v * 19));
     stemData.temp.fx.cheby.order = order;
-    stemData.temp.fx.cheby.wet.setTargetAtTime(0.1 + v * 0.85, now, 0.4);
+    stemData.temp.fx.cheby.wet.setTargetAtTime(0.05 + v * 0.7, now, 0.4);
 
-    // Chorus: warm = lush depth
-    stemData.temp.fx.chorus.depth = 0.05 + v * 0.85;
-    stemData.temp.fx.chorus.wet.setTargetAtTime(0.1 + v * 0.7, now, 0.3);
+    // Chorus: warm = lush
+    stemData.temp.fx.chorus.depth = 0.05 + v * 0.75;
+    stemData.temp.fx.chorus.wet.setTargetAtTime(0.1 + v * 0.6, now, 0.3);
+
+    // Reverb: cold = tight room, warm = open space
+    stemData.temp.fx.reverb.wet.setTargetAtTime(0.05 + v * 0.65, now, 0.5);
 
     fxDisplay.temp.cheby  = order;
-    fxDisplay.temp.chorus = Math.round((0.05 + v * 0.85) * 100);
+    fxDisplay.temp.chorus = Math.round((0.05 + v * 0.75) * 100);
+    fxDisplay.temp.reverb = Math.round((0.05 + v * 0.65) * 100);
   }
 
   // WIND — filter + distortion
@@ -702,19 +740,24 @@ function runModulation() {
     fxDisplay.wind.dist   = Math.round(v * 100);
   }
 
-  // MARKET — freq shift + reverb (BTC-USD via WebSocket)
+  // MARKET — tremolo + reverb (BTC-USD 60s delta via WebSocket)
   if (stemData.market.active) {
-    const v = liveData.market.norm;
+    const v = liveData.market.norm; // 0.5 = flat, 0/1 = full move down/up
 
-    // FrequencyShifter: ±26Hz = ±1 semitone at A4
-    const shiftHz = (v - 0.5) * 52;
-    stemData.market.fx.freqShift.frequency.setTargetAtTime(shiftHz, now, 0.5);
+    // Distance from centre (0.5) = volatility magnitude, 0–0.5 range → scale to 0–1
+    const magnitude = Math.abs(v - 0.5) * 2; // 0 = calm, 1 = max delta
 
-    // Reverb: low BTC = tight room, high BTC = long cavernous space
-    stemData.market.fx.reverb.wet.setTargetAtTime(0.05 + v * 0.75, now, 0.4);
+    // Tremolo: calm market = barely there. Strong move (either direction) = fast flutter.
+    // Rate: 0.5Hz at rest → 8Hz at full volatility. Depth: 0 → 0.75.
+    stemData.market.fx.tremolo.frequency.setTargetAtTime(0.5 + magnitude * 7.5, now, 0.3);
+    stemData.market.fx.tremolo.depth.setTargetAtTime(magnitude * 0.75, now, 0.3);
+    stemData.market.fx.tremolo.wet.setTargetAtTime(0.1 + magnitude * 0.8, now, 0.3);
 
-    fxDisplay.market.shift  = shiftHz.toFixed(1);
-    fxDisplay.market.reverb = Math.round((0.05 + v * 0.75) * 100);
+    // Reverb: volatile market = vast space
+    stemData.market.fx.reverb.wet.setTargetAtTime(0.05 + magnitude * 0.8, now, 0.5);
+
+    fxDisplay.market.tremolo = +(0.5 + magnitude * 7.5).toFixed(1);
+    fxDisplay.market.reverb  = Math.round((0.05 + magnitude * 0.8) * 100);
   }
 
   refreshFxPanel();
@@ -749,8 +792,9 @@ const fxPanelConfig = {
   temp: {
     title: 'Temperature → Lead',
     rows: [
-      { id:'cheby',  label:'Chebyshev Order', unit:'',  normFn: v => (v-1)/49 },
-      { id:'chorus', label:'Chorus Depth',    unit:'%', normFn: v => (v-5)/85 },
+      { id:'cheby',  label:'Chebyshev Order', unit:'',  normFn: v => (v-1)/19 },
+      { id:'chorus', label:'Chorus Depth',    unit:'%', normFn: v => (v-5)/75 },
+      { id:'reverb', label:'Reverb Wet',      unit:'%', normFn: v => (v-5)/65 },
     ]
   },
   wind: {
@@ -761,10 +805,10 @@ const fxPanelConfig = {
     ]
   },
   market: {
-    title: 'BTC-USD → Keys',
+    title: 'BTC-USD 60s Delta → Keys',
     rows: [
-      { id:'shift',  label:'Freq Shift', unit:'Hz', normFn: v => (parseFloat(v)+26)/52 },
-      { id:'reverb', label:'Reverb Wet', unit:'%',  normFn: v => (v-5)/75 },
+      { id:'tremolo', label:'Tremolo Rate', unit:'Hz', normFn: v => (v-0.5)/7.5 },
+      { id:'reverb',  label:'Reverb Wet',  unit:'%',  normFn: v => (v-5)/80 },
     ]
   }
 };
