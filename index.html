@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-<!-- Tone.js loaded synchronously, no defer, no module — must resolve before any script below -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 <style>
   :root {
@@ -71,6 +70,16 @@
   .stem-tile.active .stem-mute.is-muted{background:rgba(245,240,232,0.15);border-color:var(--cream)!important;}
   .stem-mute.is-muted{background:var(--green-faint);border-color:var(--green)!important;}
 
+  /* ── BTC ticker badge ── */
+  #btc-live-badge {
+    display:inline-flex;align-items:center;gap:0.4rem;
+    font-size:0.5rem;letter-spacing:0.12em;text-transform:uppercase;
+    opacity:0.55;transition:color 0.3s;
+  }
+  #btc-live-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 1s ease-in-out infinite;}
+  #btc-live-badge.up{color:#2D7A3D;}
+  #btc-live-badge.down{color:#7A2D2D;}
+
   /* ── FX Panel ── */
   .fx-panel{
     position:fixed;bottom:2rem;right:2rem;width:260px;
@@ -80,10 +89,7 @@
     transition:opacity 0.22s ease,transform 0.22s ease;
   }
   .fx-panel.visible{opacity:1;transform:translateY(0);pointer-events:all;}
-  .fx-panel-head{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:0.8rem 1.1rem;border-bottom:1px solid var(--green-line);
-  }
+  .fx-panel-head{display:flex;justify-content:space-between;align-items:center;padding:0.8rem 1.1rem;border-bottom:1px solid var(--green-line);}
   .fx-panel-title{font-size:0.5rem;letter-spacing:0.18em;text-transform:uppercase;opacity:0.5;display:flex;align-items:center;gap:0.45rem;}
   .fx-panel-title::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite;}
   .fx-panel-close{font-size:0.5rem;letter-spacing:0.1em;opacity:0.35;cursor:crosshair;background:none;border:none;color:var(--green);font-family:var(--mono);padding:0;}
@@ -111,7 +117,6 @@
 </head>
 <body>
 
-<!-- FX overlay -->
 <div class="fx-panel" id="fx-panel">
   <div class="fx-panel-head">
     <div class="fx-panel-title" id="fx-panel-title">Effects</div>
@@ -162,6 +167,7 @@
   <canvas id="spectrum-canvas"></canvas>
   <div class="stems-grid">
 
+    <!-- SUBWAY — unchanged -->
     <div class="stem-tile" id="tile-subway" data-stem="subway" data-param="L Train Delay">
       <div class="stem-state-badge" id="badge-subway">dry</div>
       <div class="stem-source">MTA · L Train</div>
@@ -173,44 +179,48 @@
       <button class="stem-mute" id="mute-subway">mute</button>
     </div>
 
+    <!-- SNOW — new: autowah · autofilter (bpm lfo) · vibrato -->
     <div class="stem-tile" id="tile-snow" data-stem="snow" data-param="Precipitation">
       <div class="stem-state-badge" id="badge-snow">dry</div>
       <div class="stem-source">Weather · Precipitation</div>
       <div class="stem-param">Precipitation</div>
-      <div class="stem-target">→ lead · tremolo · reverb · LFO</div>
+      <div class="stem-target">→ lead · autowah · autofilter · vibrato</div>
       <div class="stem-mini-wave" style="--spd:1.2s">
         <span style="height:20%"></span><span style="height:40%"></span><span style="height:25%"></span><span style="height:55%"></span><span style="height:35%"></span><span style="height:45%"></span><span style="height:30%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span><span style="height:30%"></span><span style="height:55%"></span><span style="height:20%"></span><span style="height:45%"></span><span style="height:35%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span>
       </div>
       <button class="stem-mute" id="mute-snow">mute</button>
     </div>
 
+    <!-- TEMP — new: pingpong · chorus · reverb -->
     <div class="stem-tile" id="tile-temp" data-stem="temp" data-param="Temperature">
       <div class="stem-state-badge" id="badge-temp">dry</div>
       <div class="stem-source">Weather · Temperature</div>
       <div class="stem-param">Temperature</div>
-      <div class="stem-target">→ lead · distortion · reverb · chorus</div>
+      <div class="stem-target">→ lead · ping pong · chorus · reverb</div>
       <div class="stem-mini-wave" style="--spd:0.75s">
         <span style="height:55%"></span><span style="height:75%"></span><span style="height:60%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:55%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span>
       </div>
       <button class="stem-mute" id="mute-temp">mute</button>
     </div>
 
+    <!-- WIND — new: filter · distortion -->
     <div class="stem-tile" id="tile-wind" data-stem="wind" data-param="Wind Speed">
       <div class="stem-state-badge" id="badge-wind">dry</div>
       <div class="stem-source">Weather · Wind Speed</div>
       <div class="stem-param">Wind Speed</div>
-      <div class="stem-target">→ bass · filter · phaser · autopan</div>
+      <div class="stem-target">→ bass · filter · distortion</div>
       <div class="stem-mini-wave" style="--spd:0.5s">
         <span style="height:35%"></span><span style="height:65%"></span><span style="height:45%"></span><span style="height:80%"></span><span style="height:30%"></span><span style="height:70%"></span><span style="height:50%"></span><span style="height:85%"></span><span style="height:40%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:35%"></span><span style="height:55%"></span><span style="height:90%"></span><span style="height:45%"></span><span style="height:65%"></span><span style="height:30%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:70%"></span>
       </div>
       <button class="stem-mute" id="mute-wind">mute</button>
     </div>
 
-    <div class="stem-tile" id="tile-market" data-stem="market" data-param="Market Volatility">
+    <!-- MARKET — now BTC: freqshift (±1 semitone) · waveshaper -->
+    <div class="stem-tile" id="tile-market" data-stem="market" data-param="BTC Price">
       <div class="stem-state-badge" id="badge-market">dry</div>
-      <div class="stem-source">Markets · VIX</div>
-      <div class="stem-param">Market Volatility</div>
-      <div class="stem-target">→ keys · ping pong · stereo width</div>
+      <div class="stem-source">Markets · BTC-USD</div>
+      <div class="stem-param">BTC Price</div>
+      <div class="stem-target">→ keys · freq shift · waveshaper</div>
       <div class="stem-mini-wave" style="--spd:0.32s">
         <span style="height:30%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:25%"></span><span style="height:80%"></span><span style="height:35%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:25%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:80%"></span>
       </div>
@@ -237,21 +247,37 @@
   <div style="display:flex;align-items:center;gap:2rem;">
     <a href="https://eegee.substack.com" target="_blank" style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.45;color:var(--green);text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.45'">Substack ↗</a>
     <a href="https://www.instagram.com/eliasgoodman/" target="_blank" style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.45;color:var(--green);text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.45'">Instagram ↗</a>
+    <div id="btc-live-badge"><span class="dot"></span><span id="btc-readout">· connecting ·</span></div>
     <span id="live-readout" style="font-size:0.55rem;letter-spacing:0.08em;opacity:0.3;text-transform:uppercase;">· loading ·</span>
   </div>
 </footer>
 
 <script>
-// ══════════════════════════════════════
-// SANITY CHECK — if Tone didn't load, show a clear message
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// CHANGE LOG (vs original)
+// ──────────────────────────────────────────────────────────────────
+// SUBWAY  (drums):   UNCHANGED — BitCrusher → Filter → FeedbackDelay
+// SNOW    (lead):    WAS: Tremolo → Reverb → LFO Filter
+//                    NOW: AutoWah → AutoFilter (LFO @ track BPM) → Vibrato
+// TEMP    (lead):    WAS: Distortion → Chorus → Reverb
+//                    NOW: PingPongDelay → Chorus → Reverb
+// WIND    (bass):    WAS: Filter → Phaser → AutoPanner
+//                    NOW: Filter → Distortion
+// MARKET  (keys):    WAS: PingPongDelay → StereoWidener  |  source: VIX via REST poll
+//                    NOW: FrequencyShifter (±1 semitone max) → WaveShaper  |  source: BTC-USD via Coinbase WebSocket
+// ══════════════════════════════════════════════════════════════════
+
+// ── TRACK BPM — set this to your actual track BPM ─────────────────
+// Used to lock AutoFilter LFO to musical time on the snow stem.
+const TRACK_BPM = 127; // ← change to your track's BPM
+
 if (typeof Tone === 'undefined') {
-  document.getElementById('player-status').textContent = '· Tone.js failed to load — check network connection ·';
+  document.getElementById('player-status').textContent = '· Tone.js failed to load — check network ·';
 }
 
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 // BACKGROUND CANVAS
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 const bgSvg = document.getElementById('data-canvas');
 let bgLines = [], bgT = 0;
 const vW = () => window.innerWidth, vH = () => window.innerHeight;
@@ -285,9 +311,9 @@ function renderBg() {
 function bgTick(){bgT+=0.006;renderBg();requestAnimationFrame(bgTick);}
 initBgLines();bgTick();window.addEventListener('resize',initBgLines);
 
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 // SPECTRUM
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 const specEl=document.getElementById('spectrum-canvas'),spec2d=specEl.getContext('2d');
 let toneAnalyser=null,specT=0,isPlaying=false;
 function resizeSpec(){specEl.width=specEl.offsetWidth*devicePixelRatio;specEl.height=specEl.offsetHeight*devicePixelRatio;}
@@ -313,19 +339,18 @@ function drawSpectrum(){
 }
 drawSpectrum();
 
-// ══════════════════════════════════════
-// LIVE DATA
-// Open-Meteo is free, no API key needed.
-// Falls back to realistic demo values if fetch fails (e.g. when running via file://)
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// LIVE DATA STATE
+// ══════════════════════════════════════════════════════════════════
 const liveData = {
   temp:   { norm: 0.45, display: '55°F',    label: 'Temperature' },
   wind:   { norm: 0.25, display: '10 mph',  label: 'Wind Speed' },
   snow:   { norm: 0.0,  display: '0 mm/hr', label: 'Precipitation' },
   subway: { norm: 0.3,  display: '5 min',   label: 'L Train Delay' },
-  market: { norm: 0.4,  display: 'VIX 18',  label: 'VIX' },
+  market: { norm: 0.5,  display: '...',     label: 'BTC-USD' },
 };
 
+// ── WEATHER (Open-Meteo, no key required) ────────────────────────
 async function fetchWeather() {
   try {
     const res = await fetch(
@@ -338,76 +363,120 @@ async function fetchWeather() {
     const t = d.current.temperature_2m;
     const w = d.current.wind_speed_10m;
     const p = d.current.precipitation;
-    liveData.temp   = { norm: Math.max(0,Math.min(1,(t-10)/90)),   display: Math.round(t)+'°F',          label:'Temperature' };
-    liveData.wind   = { norm: Math.min(1,w/40),                    display: Math.round(w)+' mph',         label:'Wind Speed' };
-    liveData.snow   = { norm: Math.min(1,p/8),                     display: p.toFixed(1)+' mm/hr',        label:'Precipitation' };
+    liveData.temp = { norm: Math.max(0,Math.min(1,(t-10)/90)), display: Math.round(t)+'°F', label:'Temperature' };
+    liveData.wind = { norm: Math.min(1,w/40),                  display: Math.round(w)+' mph', label:'Wind Speed' };
+    liveData.snow = { norm: Math.min(1,p/8),                   display: p.toFixed(1)+' mm/hr', label:'Precipitation' };
     document.getElementById('live-readout').textContent =
       `· NYC ${Math.round(t)}°F · ${Math.round(w)} mph · ${p} mm/hr ·`;
   } catch(e) {
-    console.warn('Weather fetch failed, using demo values:', e.message);
-    document.getElementById('live-readout').textContent = '· demo mode · deploy to vercel for live data ·';
+    console.warn('Weather fetch failed:', e.message);
+    document.getElementById('live-readout').textContent = '· demo mode ·';
   }
 }
 fetchWeather();
 setInterval(fetchWeather, 60000);
 
-// ── REAL VIX DATA ────────────────────────────────────────
-// Proxied through /api/vix (Vercel serverless) to avoid CORS.
-// Mirrors vix_osc.py normalization: VIX 10=0.0, VIX 45=1.0, tension curve applied.
-async function fetchVIX() {
-  try {
-    const r = await fetch('/api/vix', { signal: AbortSignal.timeout(8000) });
-    if (!r.ok) throw new Error(`VIX API ${r.status}`);
-    const d = await r.json();
-    liveData.market = {
-      norm:    d.norm,
-      display: d.display,
-      label:   'VIX',
-      raw:     d.raw,
-    };
-    console.log(`VIX: ${d.raw} → norm ${d.norm}`);
-  } catch(e) {
-    console.warn('VIX fetch failed, keeping last value:', e.message);
-  }
-}
-
-// ── REAL MTA DATA ────────────────────────────────────────
-// Proxied through /api/mta (Vercel serverless).
-// Mirrors mta.py: counts L train delays (>2min) + L train service alerts, cap 30.
+// ── MTA (Vercel serverless proxy, unchanged) ─────────────────────
 async function fetchMTA() {
   try {
     const r = await fetch('/api/mta', { signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error(`MTA API ${r.status}`);
     const d = await r.json();
-    liveData.subway = {
-      norm:    d.norm,
-      display: d.display,
-      label:   'L Train',
-      raw:     d.combined,
-    };
-    console.log(`MTA L: ${d.combined} issues → norm ${d.norm}`);
+    liveData.subway = { norm: d.norm, display: d.display, label: 'L Train', raw: d.combined };
   } catch(e) {
-    console.warn('MTA fetch failed, keeping last value:', e.message);
+    console.warn('MTA fetch failed:', e.message);
   }
 }
-
-// Initial fetches + poll every 60s (matches your Python scripts)
-fetchVIX();
 fetchMTA();
-setInterval(fetchVIX, 60000);
 setInterval(fetchMTA, 60000);
 
-// ══════════════════════════════════════
-// AUDIO ENGINE
-// Key rules followed:
-// 1. Tone.start() ONLY inside click handler (browser autoplay policy)
-// 2. Players created with loop:true, autostart:false
-// 3. await Tone.loaded() before starting playback
-// 4. Parallel dry/wet gain routing — no CrossFade (buggy in v14)
-// 5. All parameter changes via .rampTo() or .setTargetAtTime() for smoothness
-// ══════════════════════════════════════
-let isReady = false, initInProgress = false;
+// ══════════════════════════════════════════════════════════════════
+// COINBASE WEBSOCKET — BTC-USD tick-by-tick
+// Replaces: fetchVIX() + /api/vix serverless function (no longer needed)
+//
+// Normalization: maps BTC price to 0–1 for effect depth.
+// Range $60K–$110K covers typical trading band; adjust if BTC moves out of range.
+// Centre point ~$85K = 0.5 norm (neutral effect depth).
+//
+// FrequencyShifter range: norm 0.0 = -1 semitone, 0.5 = 0 (no shift), 1.0 = +1 semitone
+// This keeps the keys stem in key — BTC just tunes it slightly sharp or flat.
+// ══════════════════════════════════════════════════════════════════
+let btcLastPrice = null;
+const BTC_MIN = 60000;
+const BTC_MAX = 110000;
 
+function connectCoinbase() {
+  let ws;
+  try {
+    ws = new WebSocket('wss://advanced-trade-ws.coinbase.com/');
+  } catch(e) {
+    console.warn('Coinbase WS failed to open:', e);
+    setTimeout(connectCoinbase, 5000);
+    return;
+  }
+
+  ws.onopen = () => {
+    console.log('Coinbase WS connected');
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      product_ids: ['BTC-USD'],
+      channel: 'ticker'
+    }));
+    document.getElementById('btc-readout').textContent = '· btc connected ·';
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      // Coinbase Advanced Trade WS wraps ticker events like this:
+      // { channel: 'ticker', events: [{ tickers: [{ price: '...' }] }] }
+      if (msg.channel === 'ticker' && msg.events?.[0]?.tickers?.[0]) {
+        const price = parseFloat(msg.events[0].tickers[0].price);
+        if (isNaN(price)) return;
+
+        const norm = Math.max(0, Math.min(1, (price - BTC_MIN) / (BTC_MAX - BTC_MIN)));
+        const dir = btcLastPrice !== null ? (price > btcLastPrice ? 'up' : price < btcLastPrice ? 'down' : '') : '';
+        btcLastPrice = price;
+
+        liveData.market = {
+          norm,
+          display: '$' + Math.round(price).toLocaleString(),
+          label: 'BTC-USD',
+          raw: price
+        };
+
+        // Update badge in footer
+        const badge = document.getElementById('btc-live-badge');
+        const readout = document.getElementById('btc-readout');
+        readout.textContent = `· BTC $${Math.round(price).toLocaleString()} ·`;
+        if (dir) {
+          badge.className = 'btc-live-badge ' + dir;
+          // Flash direction colour then fade back
+          setTimeout(() => badge.className = 'btc-live-badge', 800);
+        }
+      }
+    } catch(err) {
+      // malformed message, ignore
+    }
+  };
+
+  ws.onclose = (e) => {
+    console.warn('Coinbase WS closed, reconnecting in 3s…', e.code);
+    document.getElementById('btc-readout').textContent = '· btc reconnecting ·';
+    setTimeout(connectCoinbase, 3000);
+  };
+
+  ws.onerror = (err) => {
+    console.warn('Coinbase WS error:', err);
+    ws.close(); // triggers onclose → reconnect
+  };
+}
+connectCoinbase();
+
+// ══════════════════════════════════════════════════════════════════
+// AUDIO ENGINE
+// ══════════════════════════════════════════════════════════════════
+let isReady = false, initInProgress = false;
 const STEMS = ['subway','snow','temp','wind','market'];
 const stemData = {};
 STEMS.forEach(k => {
@@ -416,88 +485,128 @@ STEMS.forEach(k => {
 
 function setStatus(msg){ document.getElementById('player-status').textContent = msg; }
 
+// ── WaveShaper curve builder ─────────────────────────────────────
+// Soft-knee saturation curve — gentle warmth at low drive, gritty at high drive.
+// Used on the market/BTC stem. Not harsh clipping — more like tape saturation.
+function makeWaveShapeCurve(amount) {
+  const n = 256, curve = new Float32Array(n);
+  const k = typeof amount === 'number' ? amount : 50;
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
 async function initAudio() {
   if (initInProgress || isReady) return isReady;
   initInProgress = true;
   setStatus('· starting audio context ·');
 
   try {
-    // Step 1: unlock AudioContext (MUST be in click handler call stack)
     await Tone.start();
     setStatus('· loading stems ·');
 
-    // Step 2: build master bus with compressor + limiter to prevent clipping
-    // Mirrors v1's DynamicsCompressor: threshold -18, knee 8, ratio 4, attack 3ms, release 250ms
+    // Master bus
     const masterLimiter    = new Tone.Limiter(-3).toDestination();
     const masterCompressor = new Tone.Compressor({
-      threshold: -18,
-      knee:       8,
-      ratio:      4,
-      attack:     0.003,
-      release:    0.25,
+      threshold: -18, knee: 8, ratio: 4, attack: 0.003, release: 0.25,
     }).connect(masterLimiter);
     const masterBus = new Tone.Gain(0.72).connect(masterCompressor);
     toneAnalyser = new Tone.Analyser('fft', 2048);
     masterBus.connect(toneAnalyser);
 
-    // Step 3: pre-generate IR reverbs (must happen before Tone.loaded())
-    const revSnow = new Tone.Reverb({ decay:3.0, preDelay:0.01 });
-    const revTemp = new Tone.Reverb({ decay:2.0, preDelay:0.01 });
-    await Promise.all([revSnow.generate(), revTemp.generate()]);
+    // Pre-generate convolution reverbs
+    const revTemp = new Tone.Reverb({ decay: 2.0, preDelay: 0.01 });
+    await revTemp.generate();
 
-    // Step 4: build each stem's routing
-    // Pattern: player → dryGain ↘
-    //          player → fx chain → wetGain → masterGain → masterBus
-    //                              dryGain ↗
-
+    // Stem routing helper
+    // player → dryGain ↘
+    // player → fx chain → wetGain → masterGain → masterBus
+    //          dryGain ↗
     function makeStemRouting(key, fxNodes) {
       const s = stemData[key];
       s.masterGain = new Tone.Gain(1).connect(masterBus);
       s.dryGain    = new Tone.Gain(1).connect(s.masterGain);
       s.wetGain    = new Tone.Gain(0).connect(s.masterGain);
-      s.player     = new Tone.Player({ url:'stems_for_player/'+key+'_dry.mp3', loop:true, autostart:false });
-      // dry
+      s.player     = new Tone.Player({ url: 'stems_for_player/' + key + '_dry.mp3', loop: true, autostart: false });
       s.player.connect(s.dryGain);
-      // wet: chain through fx manually
       let node = s.player;
-      fxNodes.forEach(fx => { const next = fx; node.connect(next); node = next; });
+      fxNodes.forEach(fx => { node.connect(fx); node = fx; });
       node.connect(s.wetGain);
     }
 
-    // SUBWAY — drums: bitcrusher → filter → feedback delay
+    // ────────────────────────────────────────────────────────────
+    // SUBWAY — drums: UNCHANGED
+    // BitCrusher → Filter → FeedbackDelay
+    // ────────────────────────────────────────────────────────────
     stemData.subway.fx.bits   = new Tone.BitCrusher(8);
-    stemData.subway.fx.filter = new Tone.Filter({ frequency:2000, type:'lowpass' });
-    stemData.subway.fx.delay  = new Tone.FeedbackDelay({ delayTime:'8n', feedback:0.2, wet:0.5 });
+    stemData.subway.fx.filter = new Tone.Filter({ frequency: 2000, type: 'lowpass' });
+    stemData.subway.fx.delay  = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.2, wet: 0.5 });
     makeStemRouting('subway', [stemData.subway.fx.bits, stemData.subway.fx.filter, stemData.subway.fx.delay]);
 
-    // SNOW — lead: tremolo → reverb → filter
-    stemData.snow.fx.tremolo = new Tone.Tremolo({ frequency:4, depth:0.3 }).start();
-    stemData.snow.fx.reverb  = revSnow;
-    stemData.snow.fx.filter  = new Tone.Filter({ frequency:2000, type:'lowpass' });
-    const snowLFO = new Tone.LFO({ frequency:2, min:400, max:2200 });
-    snowLFO.connect(stemData.snow.fx.filter.frequency);
-    snowLFO.start();
-    stemData.snow.fx.lfo = snowLFO;
-    makeStemRouting('snow', [stemData.snow.fx.tremolo, stemData.snow.fx.reverb, stemData.snow.fx.filter]);
+    // ────────────────────────────────────────────────────────────
+    // SNOW — lead: NEW
+    // AutoWah → AutoFilter (LFO locked to track BPM) → Vibrato
+    //
+    // AutoWah: envelope follower wah — responds to the transients of the lead.
+    //   baseFrequency and sensitivity driven by precipitation norm.
+    // AutoFilter: LFO rate locked to track BPM (1 cycle per beat at rest,
+    //   speeds up with more precipitation for urgency). Octaves = filter sweep range.
+    // Vibrato: pitch wobble — depth and rate driven by precipitation.
+    //   Subtle at low precip, pronounced flutter at high.
+    // ────────────────────────────────────────────────────────────
+    const bpmHz = TRACK_BPM / 60; // beats per second → LFO base frequency
+    stemData.snow.fx.wah     = new Tone.AutoWah({ baseFrequency: 100, octaves: 3, sensitivity: -20, Q: 2, gain: 2, wet: 0.8 });
+    stemData.snow.fx.filter  = new Tone.AutoFilter({ frequency: bpmHz, baseFrequency: 200, octaves: 3, type: 'sine', wet: 0.7 }).start();
+    stemData.snow.fx.vibrato = new Tone.Vibrato({ frequency: 4, depth: 0.1, wet: 0.6 });
+    makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.filter, stemData.snow.fx.vibrato]);
 
-    // TEMP — lead: distortion → chorus → reverb
-    stemData.temp.fx.dist   = new Tone.Distortion({ distortion:0.2, wet:0.8 });
-    stemData.temp.fx.chorus = new Tone.Chorus({ frequency:2, delayTime:2.5, depth:0.4, wet:0.5 }).start();
+    // ────────────────────────────────────────────────────────────
+    // TEMP — lead: NEW
+    // PingPongDelay → Chorus → Reverb
+    //
+    // PingPongDelay: replaces distortion. Temperature drives delay feedback
+    //   and wet mix — cold temps = tight/dry, warm = washy spatial trails.
+    // Chorus: kept. Depth driven by temperature (warm = lush, cold = dry).
+    // Reverb: kept. Wet driven by temperature.
+    // ────────────────────────────────────────────────────────────
+    stemData.temp.fx.ping   = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.2, wet: 0.2 });
+    stemData.temp.fx.chorus = new Tone.Chorus({ frequency: 2, delayTime: 2.5, depth: 0.4, wet: 0.5 }).start();
     stemData.temp.fx.reverb = revTemp;
-    makeStemRouting('temp', [stemData.temp.fx.dist, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
+    makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
 
-    // WIND — bass: filter → phaser → autopanner
-    stemData.wind.fx.filter  = new Tone.Filter({ frequency:800, type:'lowpass' });
-    stemData.wind.fx.phaser  = new Tone.Phaser({ frequency:0.5, octaves:3, baseFrequency:350 });
-    stemData.wind.fx.panner  = new Tone.AutoPanner({ frequency:0.5, depth:0.7 }).start();
-    makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.phaser, stemData.wind.fx.panner]);
+    // ────────────────────────────────────────────────────────────
+    // WIND — bass: NEW
+    // Filter → Distortion
+    //
+    // Removed: Phaser, AutoPanner
+    // Added: Distortion — wind grit. Low wind = clean filtered bass.
+    //   High wind = driven, gnarly low end. Feels physical, like wind pressure.
+    //   WaveShaper-style overdrive via Tone.Distortion (soft knee).
+    // ────────────────────────────────────────────────────────────
+    stemData.wind.fx.filter = new Tone.Filter({ frequency: 800, type: 'lowpass' });
+    stemData.wind.fx.dist   = new Tone.Distortion({ distortion: 0.0, wet: 0.0 });
+    makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.dist]);
 
-    // MARKET — keys: pingpong → widener
-    stemData.market.fx.ping   = new Tone.PingPongDelay({ delayTime:'8n', feedback:0.3, wet:0.4 });
-    stemData.market.fx.wide   = new Tone.StereoWidener(0.5);
-    makeStemRouting('market', [stemData.market.fx.ping, stemData.market.fx.wide]);
+    // ────────────────────────────────────────────────────────────
+    // MARKET — keys: NEW  |  source: BTC-USD via Coinbase WebSocket
+    // FrequencyShifter → WaveShaper
+    //
+    // FrequencyShifter: shifts pitch in Hz (not semitones). We constrain the
+    //   range to ±1 semitone equivalent in Hz (at A4=440Hz, 1 semitone ≈ 26Hz).
+    //   norm 0.0 = -26Hz (flat by ~1 semitone), 0.5 = 0Hz (in key), 1.0 = +26Hz (sharp by ~1 semitone).
+    //   BTC price moves through this range — the market detunes the keys stem
+    //   very slightly, keeping it musical but restless.
+    //
+    // WaveShaper: soft saturation on top. BTC volatility (norm) drives the
+    //   curve amount — high BTC = more harmonic content, more edge.
+    //   Uses a custom tape-saturation curve (not hard clip).
+    // ────────────────────────────────────────────────────────────
+    stemData.market.fx.freqShift = new Tone.FrequencyShifter(0); // start at 0 (in key)
+    stemData.market.fx.waveShape = new Tone.WaveShaper(makeWaveShapeCurve(10), 256); // start gentle
+    makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.waveShape]);
 
-    // Step 5: wait for ALL audio buffers to finish loading
     setStatus('· buffering audio ·');
     await Tone.loaded();
 
@@ -515,133 +624,171 @@ async function initAudio() {
 }
 
 function startAll() {
-  const t = Tone.now() + 0.05; // slight buffer
+  const t = Tone.now() + 0.05;
   STEMS.forEach(k => {
-    if (stemData[k].player && stemData[k].player.loaded) {
-      stemData[k].player.start(t);
-    }
+    if (stemData[k].player && stemData[k].player.loaded) stemData[k].player.start(t);
   });
 }
 function stopAll() {
-  STEMS.forEach(k => {
-    try { stemData[k].player && stemData[k].player.stop(); } catch(e){}
-  });
+  STEMS.forEach(k => { try { stemData[k].player && stemData[k].player.stop(); } catch(e){} });
 }
 
-// ══════════════════════════════════════
-// MODULATION LOOP
-// ══════════════════════════════════════
-// live fx values for the panel
+// ══════════════════════════════════════════════════════════════════
+// MODULATION LOOP — runs every 100ms
+// Each active stem's effects are driven by its live data norm (0–1).
+// ══════════════════════════════════════════════════════════════════
 const fxDisplay = {
-  subway: { bits:8, filter:2000, feedback:20 },
-  snow:   { tremolo:30, lfo:2 },
-  temp:   { dist:20, chorus:40, reverb:40 },
-  wind:   { filter:800, pan:0.5 },
-  market: { feedback:30, width:50 },
+  subway: { bits: 8,   filter: 2000, feedback: 20 },
+  snow:   { wah: 100,  filterFreq: 200, vibrato: 10 },
+  temp:   { ping: 20,  chorus: 40, reverb: 20 },
+  wind:   { filter: 800, dist: 0 },
+  market: { shift: 0,  shape: 10 },
 };
 
 function runModulation() {
   if (!isReady) return;
   const now = Tone.now();
 
-  // SUBWAY
+  // SUBWAY — unchanged from original
   if (stemData.subway.active) {
     const v = liveData.subway.norm;
     const bits = Math.round(8 - v * 5);
     stemData.subway.fx.bits.bits = bits;
-    stemData.subway.fx.filter.frequency.setTargetAtTime(300 + v*3500, now, 0.15);
-    stemData.subway.fx.delay.feedback.setTargetAtTime(0.1 + v*0.55, now, 0.15);
+    stemData.subway.fx.filter.frequency.setTargetAtTime(300 + v * 3500, now, 0.15);
+    stemData.subway.fx.delay.feedback.setTargetAtTime(0.1 + v * 0.55, now, 0.15);
     fxDisplay.subway.bits     = bits;
-    fxDisplay.subway.filter   = Math.round(300 + v*3500);
-    fxDisplay.subway.feedback = Math.round((0.1+v*0.55)*100);
+    fxDisplay.subway.filter   = Math.round(300 + v * 3500);
+    fxDisplay.subway.feedback = Math.round((0.1 + v * 0.55) * 100);
   }
 
-  // SNOW
+  // SNOW — autowah + autofilter (bpm-locked lfo) + vibrato
   if (stemData.snow.active) {
     const v = liveData.snow.norm;
-    stemData.snow.fx.tremolo.depth.setTargetAtTime(0.1 + v*0.9, now, 0.2);
-    stemData.snow.fx.lfo.frequency.setTargetAtTime(0.5 + v*10, now, 0.2);
-    fxDisplay.snow.tremolo = Math.round((0.1+v*0.9)*100);
-    fxDisplay.snow.lfo     = +(0.5+v*10).toFixed(1);
+    const bpmHz = TRACK_BPM / 60;
+
+    // AutoWah: more precipitation = lower base freq (darker wah) + higher sensitivity
+    stemData.snow.fx.wah.baseFrequency = 80 + (1 - v) * 300; // 80Hz (wet/dark) → 380Hz (bright/dry)
+    stemData.snow.fx.wah.sensitivity   = -30 + v * 20;       // -30dB → -10dB sensitivity
+    stemData.snow.fx.wah.wet.setTargetAtTime(0.3 + v * 0.7, now, 0.2);
+
+    // AutoFilter LFO: rate = BPM × (1 + precipitation). More snow = faster sweep.
+    // At 0 precip: 1 cycle/beat. At full precip: up to 4 cycles/beat (frantic).
+    stemData.snow.fx.filter.frequency.setTargetAtTime(bpmHz * (1 + v * 3), now, 0.3);
+    stemData.snow.fx.filter.baseFrequency = 150 + v * 400;
+    stemData.snow.fx.filter.wet.setTargetAtTime(0.3 + v * 0.6, now, 0.2);
+
+    // Vibrato: depth + rate increase with precipitation
+    stemData.snow.fx.vibrato.depth.setTargetAtTime(0.05 + v * 0.4, now, 0.25);
+    stemData.snow.fx.vibrato.frequency.setTargetAtTime(2 + v * 8, now, 0.25);
+
+    fxDisplay.snow.wah        = Math.round(80 + (1 - v) * 300);
+    fxDisplay.snow.filterFreq = +(bpmHz * (1 + v * 3)).toFixed(1);
+    fxDisplay.snow.vibrato    = Math.round((0.05 + v * 0.4) * 100);
   }
 
-  // TEMP
+  // TEMP — pingpong + chorus + reverb
   if (stemData.temp.active) {
     const v = liveData.temp.norm;
-    stemData.temp.fx.dist.distortion   = 0.05 + v*0.75;
-    stemData.temp.fx.chorus.depth       = 0.2  + v*0.8;
-    stemData.temp.fx.reverb.wet.setTargetAtTime(0.1 + v*0.7, now, 0.3);
-    fxDisplay.temp.dist   = Math.round((0.05+v*0.75)*100);
-    fxDisplay.temp.chorus = Math.round((0.2+v*0.8)*100);
-    fxDisplay.temp.reverb = Math.round((0.1+v*0.7)*100);
+
+    // PingPong: warm temps = longer trails (more feedback, wetter)
+    stemData.temp.fx.ping.feedback.setTargetAtTime(0.1 + v * 0.5, now, 0.3);
+    stemData.temp.fx.ping.wet.setTargetAtTime(0.05 + v * 0.5, now, 0.3);
+
+    // Chorus: warm temps = lush depth
+    stemData.temp.fx.chorus.depth = 0.15 + v * 0.75;
+
+    // Reverb: warm temps = more space
+    stemData.temp.fx.reverb.wet.setTargetAtTime(0.1 + v * 0.65, now, 0.4);
+
+    fxDisplay.temp.ping   = Math.round((0.05 + v * 0.5) * 100);
+    fxDisplay.temp.chorus = Math.round((0.15 + v * 0.75) * 100);
+    fxDisplay.temp.reverb = Math.round((0.1 + v * 0.65) * 100);
   }
 
-  // WIND
+  // WIND — filter + distortion
   if (stemData.wind.active) {
     const v = liveData.wind.norm;
-    stemData.wind.fx.filter.frequency.setTargetAtTime(100 + v*3000, now, 0.2);
-    stemData.wind.fx.panner.frequency.setTargetAtTime(0.1 + v*5, now, 0.2);
-    fxDisplay.wind.filter = Math.round(100+v*3000);
-    fxDisplay.wind.pan    = +(0.1+v*5).toFixed(1);
+
+    // Filter opens up as wind rises (more high freq = more aggression)
+    stemData.wind.fx.filter.frequency.setTargetAtTime(100 + v * 3500, now, 0.2);
+
+    // Distortion: zero at calm, driven at high wind
+    stemData.wind.fx.dist.distortion = v * 0.85;
+    stemData.wind.fx.dist.wet.setTargetAtTime(v * 0.9, now, 0.2);
+
+    fxDisplay.wind.filter = Math.round(100 + v * 3500);
+    fxDisplay.wind.dist   = Math.round(v * 100);
   }
 
-  // MARKET
+  // MARKET — freq shift + waveshaper (BTC-USD via WebSocket)
   if (stemData.market.active) {
     const v = liveData.market.norm;
-    stemData.market.fx.ping.feedback.setTargetAtTime(0.1 + v*0.6, now, 0.15);
-    stemData.market.fx.wide.width.setTargetAtTime(0.1 + v*0.9, now, 0.15);
-    fxDisplay.market.feedback = Math.round((0.1+v*0.6)*100);
-    fxDisplay.market.width    = Math.round((0.1+v*0.9)*100);
+
+    // FrequencyShifter: ±1 semitone range in Hz.
+    // At A4=440Hz, 1 semitone = 440 * (2^(1/12) - 1) ≈ 26.16Hz.
+    // We use ±26Hz as our shift range.
+    // v=0.0 → -26Hz (flat), v=0.5 → 0Hz (in key), v=1.0 → +26Hz (sharp).
+    const shiftHz = (v - 0.5) * 52; // maps 0–1 → -26Hz to +26Hz
+    stemData.market.fx.freqShift.frequency.setTargetAtTime(shiftHz, now, 0.5); // slow ramp keeps it musical
+
+    // WaveShaper: BTC volatility = more saturation.
+    // Rebuild curve based on norm — 0=clean(k=5), 1=driven(k=150).
+    const k = 5 + v * 145;
+    stemData.market.fx.waveShape.setMap(x => ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x)));
+
+    fxDisplay.market.shift = shiftHz.toFixed(1);
+    fxDisplay.market.shape = Math.round(k);
   }
 
   refreshFxPanel();
 }
 setInterval(runModulation, 100);
 
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 // FX PANEL
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 let fxPanelKey = null;
-const fxPanel = document.getElementById('fx-panel');
+const fxPanel      = document.getElementById('fx-panel');
 const fxPanelTitle = document.getElementById('fx-panel-title');
-const fxPanelBody = document.getElementById('fx-panel-body');
+const fxPanelBody  = document.getElementById('fx-panel-body');
 
 const fxPanelConfig = {
   subway: {
     title: 'L Train Delay → Drums',
     rows: [
-      { id:'bits',     label:'Bit Depth',      unit:'bits', src:'L Train delay (min)', normFn: v => (8-v)/5 },
-      { id:'filter',   label:'Filter Cutoff',  unit:'Hz',   src:'L Train delay (min)', normFn: v => (v-300)/3500 },
-      { id:'feedback', label:'Delay Feedback', unit:'%',    src:'L Train delay (min)', normFn: v => (v-10)/55 },
+      { id:'bits',     label:'Bit Depth',      unit:'bits', normFn: v => (8-v)/5 },
+      { id:'filter',   label:'Filter Cutoff',  unit:'Hz',   normFn: v => (v-300)/3500 },
+      { id:'feedback', label:'Delay Feedback', unit:'%',    normFn: v => (v-10)/55 },
     ]
   },
   snow: {
     title: 'Precipitation → Lead',
     rows: [
-      { id:'tremolo', label:'Tremolo Depth', unit:'%',  src:'Precipitation (mm/hr)', normFn: v => (v-10)/90 },
-      { id:'lfo',     label:'LFO Rate',      unit:'Hz', src:'Precipitation (mm/hr)', normFn: v => (v-0.5)/10 },
+      { id:'wah',        label:'Wah Base Freq', unit:'Hz', normFn: v => 1 - (v-80)/300 },
+      { id:'filterFreq', label:'Filter LFO',    unit:'Hz', normFn: v => Math.min(1,(v-1)/7) },
+      { id:'vibrato',    label:'Vibrato Depth', unit:'%',  normFn: v => (v-5)/40 },
     ]
   },
   temp: {
     title: 'Temperature → Lead',
     rows: [
-      { id:'dist',   label:'Distortion',    unit:'%', src:'Temperature (°F)', normFn: v => (v-5)/75 },
-      { id:'chorus', label:'Chorus Depth',  unit:'%', src:'Temperature (°F)', normFn: v => (v-20)/80 },
-      { id:'reverb', label:'Reverb Wet',    unit:'%', src:'Temperature (°F)', normFn: v => (v-10)/70 },
+      { id:'ping',   label:'Ping Pong Wet', unit:'%', normFn: v => (v-5)/50 },
+      { id:'chorus', label:'Chorus Depth',  unit:'%', normFn: v => (v-15)/75 },
+      { id:'reverb', label:'Reverb Wet',    unit:'%', normFn: v => (v-10)/65 },
     ]
   },
   wind: {
     title: 'Wind Speed → Bass',
     rows: [
-      { id:'filter', label:'Filter Cutoff', unit:'Hz', src:'Wind speed (mph)', normFn: v => (v-100)/3000 },
-      { id:'pan',    label:'Pan Rate',      unit:'Hz', src:'Wind speed (mph)', normFn: v => (v-0.1)/5 },
+      { id:'filter', label:'Filter Cutoff', unit:'Hz', normFn: v => (v-100)/3500 },
+      { id:'dist',   label:'Distortion',    unit:'%',  normFn: v => v/100 },
     ]
   },
   market: {
-    title: 'VIX Volatility → Keys',
+    title: 'BTC-USD → Keys',
     rows: [
-      { id:'feedback', label:'Delay Feedback', unit:'%', src:'VIX index', normFn: v => (v-10)/60 },
-      { id:'width',    label:'Stereo Width',   unit:'%', src:'VIX index', normFn: v => (v-10)/90 },
+      { id:'shift', label:'Freq Shift',  unit:'Hz', normFn: v => (parseFloat(v)+26)/52 },
+      { id:'shape', label:'Saturation',  unit:'k',  normFn: v => (v-5)/145 },
     ]
   }
 };
@@ -657,7 +804,6 @@ function openFxPanel(key) {
         <span class="fx-row-val" id="fxv-${key}-${r.id}">—</span>
       </div>
       <div class="fx-track"><div class="fx-fill" id="fxb-${key}-${r.id}" style="width:2%"></div></div>
-      <div class="fx-source">← ${r.src}</div>
       <div class="fx-data-val" id="fxd-${key}">Live: ${liveData[key].display}</div>
     </div>
   `).join('');
@@ -674,7 +820,7 @@ document.getElementById('fx-panel-close').addEventListener('click', closeFxPanel
 
 function refreshFxPanel() {
   if (!fxPanelKey) return;
-  const cfg = fxPanelConfig[fxPanelKey];
+  const cfg  = fxPanelConfig[fxPanelKey];
   const vals = fxDisplay[fxPanelKey];
   cfg.rows.forEach(r => {
     const vEl = document.getElementById(`fxv-${fxPanelKey}-${r.id}`);
@@ -689,22 +835,14 @@ function refreshFxPanel() {
   });
 }
 
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 // PLAY BUTTON
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 document.getElementById('master-play-btn').addEventListener('click', async () => {
-  if (typeof Tone === 'undefined') {
-    setStatus('· Tone.js not loaded · check network ·');
-    return;
-  }
-  const icon = document.getElementById('play-icon');
+  if (typeof Tone === 'undefined') { setStatus('· Tone.js not loaded ·'); return; }
+  const icon  = document.getElementById('play-icon');
   const label = document.getElementById('play-label');
-
-  if (!isReady) {
-    const ok = await initAudio();
-    if (!ok) return;
-  }
-
+  if (!isReady) { const ok = await initAudio(); if (!ok) return; }
   if (isPlaying) {
     stopAll();
     icon.innerHTML = '<polygon points="0,0 10,6 0,12"/>';
@@ -720,17 +858,15 @@ document.getElementById('master-play-btn').addEventListener('click', async () =>
   }
 });
 
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 // TILE INTERACTIONS
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 STEMS.forEach(key => {
   const tile  = document.getElementById('tile-' + key);
   const badge = document.getElementById('badge-' + key);
-
   tile.addEventListener('click', e => {
     if (e.target.classList.contains('stem-mute')) return;
     if (!isReady) { setStatus('· press play first ·'); return; }
-
     const s = stemData[key];
     if (s.active) {
       s.active = false;
@@ -738,7 +874,7 @@ STEMS.forEach(key => {
       s.wetGain.gain.rampTo(0, 0.35);
       tile.classList.remove('active');
       badge.textContent = 'dry';
-      const n = STEMS.filter(k=>stemData[k].active).length;
+      const n = STEMS.filter(k => stemData[k].active).length;
       setStatus(n ? `· ${n} stem${n>1?'s':''} data-active ·` : '· playing · blizzard 02.23.26 ·');
       if (fxPanelKey === key) closeFxPanel();
     } else {
@@ -747,20 +883,20 @@ STEMS.forEach(key => {
       s.wetGain.gain.rampTo(1, 0.35);
       tile.classList.add('active');
       badge.textContent = 'data active';
-      const n = STEMS.filter(k=>stemData[k].active).length;
+      const n = STEMS.filter(k => stemData[k].active).length;
       setStatus(`· ${n} stem${n>1?'s':''} data-active ·`);
       openFxPanel(key);
     }
   });
 });
 
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 // MUTE
-// ══════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 STEMS.forEach(key => {
   document.getElementById('mute-' + key).addEventListener('click', e => {
     e.stopPropagation();
-    const s = stemData[key];
+    const s   = stemData[key];
     const btn = e.currentTarget;
     s.muted = !s.muted;
     btn.textContent = s.muted ? 'unmute' : 'mute';
@@ -769,7 +905,6 @@ STEMS.forEach(key => {
   });
 });
 
-// close panel on outside click
 document.addEventListener('click', e => {
   if (fxPanel.classList.contains('visible') &&
       !fxPanel.contains(e.target) &&
