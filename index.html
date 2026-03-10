@@ -206,7 +206,7 @@
       <div class="stem-state-badge" id="badge-market">dry</div>
       <div class="stem-source">Markets · BTC-USD</div>
       <div class="stem-param">BTC Price</div>
-      <div class="stem-target">→ keys · freq shift · waveshaper</div>
+      <div class="stem-target">→ keys · freq shift · tremolo</div>
       <canvas class="stem-canvas" id="canvas-market"></canvas>
       <button class="stem-mute" id="mute-market">mute</button>
     </div>
@@ -519,13 +519,13 @@ async function initAudio() {
     stemData.wind.fx.dist   = new Tone.Distortion({ distortion:0.0, wet:0.0 });
     makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.dist]);
 
-    // MARKET — keys: FrequencyShifter (±1 semitone max) → WaveShaper
-    // Source: BTC-USD Coinbase WebSocket, 60s delta norm (0.5 = flat)
-    const wsCurve = new Float32Array(256);
-    for (let i=0;i<256;i++){const x=(i*2)/256-1; wsCurve[i]=(Math.PI+200)*x/(Math.PI+200*Math.abs(x));}
-    stemData.market.fx.freqShift  = new Tone.FrequencyShifter(0);
-    stemData.market.fx.waveShaper = new Tone.WaveShaper(wsCurve, 256);
-    makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.waveShaper]);
+    // MARKET — keys: FrequencyShifter (±1 semitone max) → Tremolo
+    // Source: BTC-USD Coinbase WebSocket, 60s delta norm (0.5 = flat).
+    // FreqShift: norm 0.5 = 0Hz. ±0.5 → ±26Hz ≈ ±1 semitone at A4.
+    // Tremolo: flat market (magnitude=0) = slow/subtle. High delta = fast/deep.
+    stemData.market.fx.freqShift = new Tone.FrequencyShifter(0);
+    stemData.market.fx.tremolo   = new Tone.Tremolo({ frequency:1, depth:0.1, wet:0.5 }).start();
+    makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.tremolo]);
 
     // TIME — perc: HighPass → Tremolo
     // Solar noon (norm=1) → HP at 80Hz (full body through), midnight (norm=0) → HP at 2200Hz (transients only)
@@ -535,9 +535,17 @@ async function initAudio() {
     makeStemRouting('time', [stemData.time.fx.hipass, stemData.time.fx.tremolo]);
 
     setStatus('· buffering audio ·');
+    // Log each player's load state — helps diagnose 404s or slow loads
+    STEMS.forEach(k => {
+      const p = stemData[k].player;
+      if (!p) return;
+      p.buffer.onload  = () => console.log(`✓ loaded: ${k}_dry.mp3`);
+      p.buffer.onerror = (e) => console.error(`✗ failed: ${k}_dry.mp3`, e);
+    });
+    // 20s timeout — time_dry.mp3 may be larger/slower than other stems
     await Promise.race([
       Tone.loaded(),
-      new Promise((_,reject) => setTimeout(()=>reject(new Error('load timeout — check stem file paths')), 15000))
+      new Promise((_,reject) => setTimeout(()=>reject(new Error('load timeout — check stem file paths')), 20000))
     ]);
 
     isReady = true;
@@ -571,7 +579,7 @@ const fxDisplay = {
   snow:   { wah:200,  autoFilter:0, vibrato:4  },
   temp:   { ping:0,   chorus:15,   reverb:5   },
   wind:   { filter:800, dist:0 },
-  market: { shift:'0.0', shaper:10 },
+  market: { shift:'0.0', tremolo:1 },
   time:   { hipass:1200, tremolo:2 },
 };
 
@@ -629,15 +637,17 @@ function runModulation() {
     fxDisplay.wind.dist   = Math.round(v*100);
   }
 
-  // MARKET — freqshift + waveshaper (BTC 60s delta)
+  // MARKET — freqshift + tremolo (BTC 60s delta)
   if (stemData.market.active) {
     const v = liveData.market.norm; // 0.5=flat
     const shiftHz = (v - 0.5) * 52; // ±26Hz ≈ ±1 semitone at A4
     stemData.market.fx.freqShift.frequency.setTargetAtTime(shiftHz, now, 0.5);
+    // magnitude: 0=flat market, 1=max delta. Tremolo rate+depth track volatility.
     const magnitude = Math.abs(v - 0.5) * 2;
-    stemData.market.fx.waveShaper.wet.setTargetAtTime(0.1 + magnitude*0.8, now, 0.3);
-    fxDisplay.market.shift  = shiftHz.toFixed(1);
-    fxDisplay.market.shaper = Math.round((0.1+magnitude*0.8)*100);
+    stemData.market.fx.tremolo.frequency.setTargetAtTime(0.5 + magnitude*7.5, now, 0.3);
+    stemData.market.fx.tremolo.depth.setTargetAtTime(0.05 + magnitude*0.75, now, 0.3);
+    fxDisplay.market.shift   = shiftHz.toFixed(1);
+    fxDisplay.market.tremolo = +(0.5 + magnitude*7.5).toFixed(1);
   }
 
   // TIME — highpass + tremolo (solar arc norm)
@@ -760,8 +770,8 @@ const fxPanelConfig = {
   market: {
     title: 'BTC-USD 60s Delta → Keys',
     rows: [
-      { id:'shift',  label:'Freq Shift',  unit:'Hz', src:'BTC delta', normFn: v => (parseFloat(v)+26)/52 },
-      { id:'shaper', label:'Shaper Wet',  unit:'%',  src:'BTC delta', normFn: v => (v-10)/80 },
+      { id:'shift',   label:'Freq Shift',    unit:'Hz', src:'BTC delta', normFn: v => (parseFloat(v)+26)/52 },
+      { id:'tremolo', label:'Tremolo Rate',  unit:'Hz', src:'BTC delta', normFn: v => (v-0.5)/7.5 },
     ]
   },
   time: {
