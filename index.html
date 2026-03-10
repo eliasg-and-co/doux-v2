@@ -43,21 +43,7 @@
   .master-play svg{width:11px;height:11px;fill:var(--cream);stroke:none;}
   .player-status{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.4;font-style:italic;}
   .player-hint{font-size:0.6rem;opacity:0.3;font-style:italic;}
-  #spectrum-canvas{width:100%;height:72px;display:block;margin-bottom:1.5rem;}
-
-  /* ── Dimmer slider ── */
-  .dimmer-row{display:flex;align-items:center;gap:1.2rem;margin-bottom:2rem;}
-  .dimmer-label{font-size:0.5rem;letter-spacing:0.16em;text-transform:uppercase;opacity:0.4;white-space:nowrap;}
-  .dimmer-track{flex:1;position:relative;height:20px;display:flex;align-items:center;}
-  .dimmer-fill{position:absolute;left:0;top:50%;transform:translateY(-50%);height:2px;background:var(--green);width:0%;pointer-events:none;transition:width 0.05s linear;}
-  .dimmer-track-line{position:absolute;left:0;top:50%;transform:translateY(-50%);height:2px;width:100%;background:var(--green-line);pointer-events:none;}
-  #dimmer-input{
-    position:relative;z-index:1;
-    width:100%;height:20px;margin:0;
-    opacity:0;cursor:crosshair;
-    -webkit-appearance:none;appearance:none;background:transparent;
-  }
-  .dimmer-val{font-family:var(--serif);font-size:0.9rem;font-weight:700;opacity:0.7;min-width:2.5rem;text-align:right;}
+  #spectrum-canvas{width:100%;height:72px;display:block;margin-bottom:2.5rem;}
 
   /* ── Per-stem canvas waveforms ── */
   .stem-canvas{display:block;width:100%;height:26px;margin-bottom:1rem;opacity:0.5;transition:opacity 0.22s;}
@@ -179,17 +165,6 @@
     <span class="player-hint">press play first · click tile to activate data</span>
   </div>
   <canvas id="spectrum-canvas"></canvas>
-
-  <!-- Dimmer: master data wet multiplier 0–100 -->
-  <div class="dimmer-row">
-    <span class="dimmer-label">Data depth</span>
-    <div class="dimmer-track">
-      <div class="dimmer-track-line"></div>
-      <div class="dimmer-fill" id="dimmer-fill"></div>
-      <input type="range" id="dimmer-input" min="0" max="100" value="0" step="1">
-    </div>
-    <span class="dimmer-val" id="dimmer-val">0</span>
-  </div>
 
   <div class="stems-grid">
 
@@ -533,29 +508,6 @@ const STEMS = ['subway','snow','temp','wind','market'];
 const stemData = {};
 STEMS.forEach(k => {
   stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, active:false, muted:false, analyser:null };
-});
-
-// ── Dimmer: master data-wet multiplier, 0–1 ───────────────────────
-// Scales the wet gain of ALL active stems simultaneously.
-// 0 = all dry regardless of active state. 1 = full mapped wet values.
-let masterDataWet = 0;
-
-const dimmerInput = document.getElementById('dimmer-input');
-const dimmerFill  = document.getElementById('dimmer-fill');
-const dimmerVal   = document.getElementById('dimmer-val');
-
-dimmerInput.addEventListener('input', () => {
-  const v = parseInt(dimmerInput.value);
-  masterDataWet = v / 100;
-  dimmerFill.style.width = v + '%';
-  dimmerVal.textContent = v;
-  // Apply immediately to all active stems
-  if (isReady) {
-    STEMS.forEach(k => {
-      const s = stemData[k];
-      if (s.active && s.wetGain) s.wetGain.gain.rampTo(masterDataWet, 0.08);
-    });
-  }
 });
 
 // ── Per-stem canvas analysers ─────────────────────────────────────
@@ -1044,7 +996,7 @@ STEMS.forEach(key => {
     } else {
       s.active = true;
       s.dryGain.gain.rampTo(0, 0.35);
-      s.wetGain.gain.rampTo(masterDataWet, 0.35);
+      s.wetGain.gain.rampTo(1, 0.35);
       tile.classList.add('active');
       badge.textContent = 'data active';
       const n = STEMS.filter(k => stemData[k].active).length;
