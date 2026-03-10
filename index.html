@@ -48,11 +48,13 @@
   /* ── Dimmer slider ── */
   .dimmer-row{display:flex;align-items:center;gap:1.2rem;margin-bottom:2rem;}
   .dimmer-label{font-size:0.5rem;letter-spacing:0.16em;text-transform:uppercase;opacity:0.4;white-space:nowrap;}
-  .dimmer-track{flex:1;position:relative;height:2px;background:var(--green-line);}
-  .dimmer-fill{position:absolute;left:0;top:0;height:100%;background:var(--green);width:0%;transition:width 0.05s linear;pointer-events:none;}
+  .dimmer-track{flex:1;position:relative;height:20px;display:flex;align-items:center;}
+  .dimmer-fill{position:absolute;left:0;top:50%;transform:translateY(-50%);height:2px;background:var(--green);width:0%;pointer-events:none;transition:width 0.05s linear;}
+  .dimmer-track-line{position:absolute;left:0;top:50%;transform:translateY(-50%);height:2px;width:100%;background:var(--green-line);pointer-events:none;}
   #dimmer-input{
-    position:absolute;top:50%;left:0;transform:translateY(-50%);
-    width:100%;height:18px;margin:0;opacity:0;cursor:crosshair;
+    position:relative;z-index:1;
+    width:100%;height:20px;margin:0;
+    opacity:0;cursor:crosshair;
     -webkit-appearance:none;appearance:none;background:transparent;
   }
   .dimmer-val{font-family:var(--serif);font-size:0.9rem;font-weight:700;opacity:0.7;min-width:2.5rem;text-align:right;}
@@ -182,6 +184,7 @@
   <div class="dimmer-row">
     <span class="dimmer-label">Data depth</span>
     <div class="dimmer-track">
+      <div class="dimmer-track-line"></div>
       <div class="dimmer-fill" id="dimmer-fill"></div>
       <input type="range" id="dimmer-input" min="0" max="100" value="0" step="1">
     </div>
