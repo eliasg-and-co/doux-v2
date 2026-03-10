@@ -179,24 +179,24 @@
       <button class="stem-mute" id="mute-subway">mute</button>
     </div>
 
-    <!-- SNOW — new: autowah · autofilter (bpm lfo) · vibrato -->
+    <!-- SNOW — autowah · ping pong · vibrato -->
     <div class="stem-tile" id="tile-snow" data-stem="snow" data-param="Precipitation">
       <div class="stem-state-badge" id="badge-snow">dry</div>
       <div class="stem-source">Weather · Precipitation</div>
       <div class="stem-param">Precipitation</div>
-      <div class="stem-target">→ lead · autowah · autofilter · vibrato</div>
+      <div class="stem-target">→ lead · autowah · ping pong · vibrato</div>
       <div class="stem-mini-wave" style="--spd:1.2s">
         <span style="height:20%"></span><span style="height:40%"></span><span style="height:25%"></span><span style="height:55%"></span><span style="height:35%"></span><span style="height:45%"></span><span style="height:30%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span><span style="height:30%"></span><span style="height:55%"></span><span style="height:20%"></span><span style="height:45%"></span><span style="height:35%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span>
       </div>
       <button class="stem-mute" id="mute-snow">mute</button>
     </div>
 
-    <!-- TEMP — new: pingpong · chorus · reverb -->
+    <!-- TEMP — chebyshev · chorus -->
     <div class="stem-tile" id="tile-temp" data-stem="temp" data-param="Temperature">
       <div class="stem-state-badge" id="badge-temp">dry</div>
       <div class="stem-source">Weather · Temperature</div>
       <div class="stem-param">Temperature</div>
-      <div class="stem-target">→ lead · ping pong · chorus · reverb</div>
+      <div class="stem-target">→ lead · chebyshev · chorus</div>
       <div class="stem-mini-wave" style="--spd:0.75s">
         <span style="height:55%"></span><span style="height:75%"></span><span style="height:60%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:55%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span>
       </div>
@@ -215,12 +215,12 @@
       <button class="stem-mute" id="mute-wind">mute</button>
     </div>
 
-    <!-- MARKET — now BTC: freqshift (±1 semitone) · waveshaper -->
+    <!-- MARKET — now BTC: freqshift (±1 semitone) · reverb -->
     <div class="stem-tile" id="tile-market" data-stem="market" data-param="BTC Price">
       <div class="stem-state-badge" id="badge-market">dry</div>
       <div class="stem-source">Markets · BTC-USD</div>
       <div class="stem-param">BTC Price</div>
-      <div class="stem-target">→ keys · freq shift · waveshaper</div>
+      <div class="stem-target">→ keys · freq shift · reverb</div>
       <div class="stem-mini-wave" style="--spd:0.32s">
         <span style="height:30%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:25%"></span><span style="height:80%"></span><span style="height:35%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:25%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:80%"></span>
       </div>
@@ -485,18 +485,7 @@ STEMS.forEach(k => {
 
 function setStatus(msg){ document.getElementById('player-status').textContent = msg; }
 
-// ── WaveShaper curve builder ─────────────────────────────────────
-// Soft-knee saturation curve — gentle warmth at low drive, gritty at high drive.
-// Used on the market/BTC stem. Not harsh clipping — more like tape saturation.
-function makeWaveShapeCurve(amount) {
-  const n = 256, curve = new Float32Array(n);
-  const k = typeof amount === 'number' ? amount : 50;
-  for (let i = 0; i < n; i++) {
-    const x = (i * 2) / n - 1;
-    curve[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
-  }
-  return curve;
-}
+// (WaveShaper helper removed — no longer used)
 
 async function initAudio() {
   if (initInProgress || isReady) return isReady;
@@ -517,8 +506,8 @@ async function initAudio() {
     masterBus.connect(toneAnalyser);
 
     // Pre-generate convolution reverbs
-    const revTemp = new Tone.Reverb({ decay: 2.0, preDelay: 0.01 });
-    await revTemp.generate();
+    const revMarket = new Tone.Reverb({ decay: 3.5, preDelay: 0.02 });
+    await revMarket.generate();
 
     // Stem routing helper
     // player → dryGain ↘
@@ -546,35 +535,35 @@ async function initAudio() {
     makeStemRouting('subway', [stemData.subway.fx.bits, stemData.subway.fx.filter, stemData.subway.fx.delay]);
 
     // ────────────────────────────────────────────────────────────
-    // SNOW — lead: NEW
-    // AutoWah → AutoFilter (LFO locked to track BPM) → Vibrato
+    // SNOW — lead
+    // AutoWah → PingPongDelay → Vibrato
     //
-    // AutoWah: envelope follower wah — responds to the transients of the lead.
-    //   baseFrequency and sensitivity driven by precipitation norm.
-    // AutoFilter: LFO rate locked to track BPM (1 cycle per beat at rest,
-    //   speeds up with more precipitation for urgency). Octaves = filter sweep range.
-    // Vibrato: pitch wobble — depth and rate driven by precipitation.
-    //   Subtle at low precip, pronounced flutter at high.
+    // AutoWah: envelope follower — responds to lead transients.
+    //   More precipitation = darker/wetter wah (lower base freq, higher sensitivity).
+    // PingPongDelay: precipitation drives feedback and wet.
+    //   Dry at 0 precip, washy stereo trails at heavy precipitation.
+    //   Delay time locked to 8n for musical bounce.
+    // Vibrato: depth + rate increase with precipitation intensity.
     // ────────────────────────────────────────────────────────────
-    const bpmHz = TRACK_BPM / 60; // beats per second → LFO base frequency
     stemData.snow.fx.wah     = new Tone.AutoWah({ baseFrequency: 100, octaves: 3, sensitivity: -20, Q: 2, gain: 2, wet: 0.8 });
-    stemData.snow.fx.filter  = new Tone.AutoFilter({ frequency: bpmHz, baseFrequency: 200, octaves: 3, type: 'sine', wet: 0.7 }).start();
+    stemData.snow.fx.ping    = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.1, wet: 0.0 });
     stemData.snow.fx.vibrato = new Tone.Vibrato({ frequency: 4, depth: 0.1, wet: 0.6 });
-    makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.filter, stemData.snow.fx.vibrato]);
+    makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.ping, stemData.snow.fx.vibrato]);
 
     // ────────────────────────────────────────────────────────────
-    // TEMP — lead: NEW
-    // PingPongDelay → Chorus → Reverb
+    // TEMP — lead
+    // Chebyshev → Chorus
     //
-    // PingPongDelay: replaces distortion. Temperature drives delay feedback
-    //   and wet mix — cold temps = tight/dry, warm = washy spatial trails.
-    // Chorus: kept. Depth driven by temperature (warm = lush, cold = dry).
-    // Reverb: kept. Wet driven by temperature.
+    // Chebyshev: harmonic distortion via Chebyshev polynomials.
+    //   Cold (low norm) = order 1 → nearly clean, just fundamental.
+    //   Warm (high norm) = order 50 → dense harmonic overtones, complex texture.
+    //   This is the most dramatic cold/warm contrast available in Tone.js —
+    //   the timbre transforms completely from sparse to rich.
+    // Chorus: depth also driven by temperature. Cold = tight/dry, warm = lush.
     // ────────────────────────────────────────────────────────────
-    stemData.temp.fx.ping   = new Tone.PingPongDelay({ delayTime: '8n', feedback: 0.2, wet: 0.2 });
-    stemData.temp.fx.chorus = new Tone.Chorus({ frequency: 2, delayTime: 2.5, depth: 0.4, wet: 0.5 }).start();
-    stemData.temp.fx.reverb = revTemp;
-    makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
+    stemData.temp.fx.cheby  = new Tone.Chebyshev(1); // order 1 = clean start
+    stemData.temp.fx.chorus = new Tone.Chorus({ frequency: 2, delayTime: 2.5, depth: 0.15, wet: 0.3 }).start();
+    makeStemRouting('temp', [stemData.temp.fx.cheby, stemData.temp.fx.chorus]);
 
     // ────────────────────────────────────────────────────────────
     // WIND — bass: NEW
@@ -590,22 +579,19 @@ async function initAudio() {
     makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.dist]);
 
     // ────────────────────────────────────────────────────────────
-    // MARKET — keys: NEW  |  source: BTC-USD via Coinbase WebSocket
-    // FrequencyShifter → WaveShaper
+    // MARKET — keys  |  source: BTC-USD via Coinbase WebSocket
+    // FrequencyShifter → Reverb
     //
-    // FrequencyShifter: shifts pitch in Hz (not semitones). We constrain the
-    //   range to ±1 semitone equivalent in Hz (at A4=440Hz, 1 semitone ≈ 26Hz).
-    //   norm 0.0 = -26Hz (flat by ~1 semitone), 0.5 = 0Hz (in key), 1.0 = +26Hz (sharp by ~1 semitone).
-    //   BTC price moves through this range — the market detunes the keys stem
-    //   very slightly, keeping it musical but restless.
-    //
-    // WaveShaper: soft saturation on top. BTC volatility (norm) drives the
-    //   curve amount — high BTC = more harmonic content, more edge.
-    //   Uses a custom tape-saturation curve (not hard clip).
+    // FrequencyShifter: ±1 semitone max (±26Hz at A4=440).
+    //   BTC price navigates through this range — market moves the pitch
+    //   slightly sharp or flat without breaking key.
+    // Reverb: BTC level drives decay and wet mix.
+    //   Low BTC = tight/dry room. High BTC = long cavernous tail.
+    //   The market literally spaces out the keys stem.
     // ────────────────────────────────────────────────────────────
-    stemData.market.fx.freqShift = new Tone.FrequencyShifter(0); // start at 0 (in key)
-    stemData.market.fx.waveShape = new Tone.WaveShaper(makeWaveShapeCurve(10), 256); // start gentle
-    makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.waveShape]);
+    stemData.market.fx.freqShift = new Tone.FrequencyShifter(0);
+    stemData.market.fx.reverb    = revMarket;
+    makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.reverb]);
 
     setStatus('· buffering audio ·');
     await Tone.loaded();
@@ -639,10 +625,10 @@ function stopAll() {
 // ══════════════════════════════════════════════════════════════════
 const fxDisplay = {
   subway: { bits: 8,   filter: 2000, feedback: 20 },
-  snow:   { wah: 100,  filterFreq: 200, vibrato: 10 },
-  temp:   { ping: 20,  chorus: 40, reverb: 20 },
+  snow:   { wah: 100,  ping: 0, vibrato: 10 },
+  temp:   { cheby: 1,  chorus: 15 },
   wind:   { filter: 800, dist: 0 },
-  market: { shift: 0,  shape: 10 },
+  market: { shift: 0,  reverb: 10 },
 };
 
 function runModulation() {
@@ -661,48 +647,44 @@ function runModulation() {
     fxDisplay.subway.feedback = Math.round((0.1 + v * 0.55) * 100);
   }
 
-  // SNOW — autowah + autofilter (bpm-locked lfo) + vibrato
+  // SNOW — autowah + pingpong + vibrato
   if (stemData.snow.active) {
     const v = liveData.snow.norm;
-    const bpmHz = TRACK_BPM / 60;
 
-    // AutoWah: more precipitation = lower base freq (darker wah) + higher sensitivity
-    stemData.snow.fx.wah.baseFrequency = 80 + (1 - v) * 300; // 80Hz (wet/dark) → 380Hz (bright/dry)
-    stemData.snow.fx.wah.sensitivity   = -30 + v * 20;       // -30dB → -10dB sensitivity
+    // AutoWah: more precipitation = darker wah (lower base freq) + higher sensitivity
+    stemData.snow.fx.wah.baseFrequency = 80 + (1 - v) * 300;
+    stemData.snow.fx.wah.sensitivity   = -30 + v * 20;
     stemData.snow.fx.wah.wet.setTargetAtTime(0.3 + v * 0.7, now, 0.2);
 
-    // AutoFilter LFO: rate = BPM × (1 + precipitation). More snow = faster sweep.
-    // At 0 precip: 1 cycle/beat. At full precip: up to 4 cycles/beat (frantic).
-    stemData.snow.fx.filter.frequency.setTargetAtTime(bpmHz * (1 + v * 3), now, 0.3);
-    stemData.snow.fx.filter.baseFrequency = 150 + v * 400;
-    stemData.snow.fx.filter.wet.setTargetAtTime(0.3 + v * 0.6, now, 0.2);
+    // PingPong: dry at 0, washy stereo trails at heavy precipitation
+    stemData.snow.fx.ping.feedback.setTargetAtTime(0.05 + v * 0.55, now, 0.25);
+    stemData.snow.fx.ping.wet.setTargetAtTime(v * 0.7, now, 0.25);
 
     // Vibrato: depth + rate increase with precipitation
     stemData.snow.fx.vibrato.depth.setTargetAtTime(0.05 + v * 0.4, now, 0.25);
     stemData.snow.fx.vibrato.frequency.setTargetAtTime(2 + v * 8, now, 0.25);
 
-    fxDisplay.snow.wah        = Math.round(80 + (1 - v) * 300);
-    fxDisplay.snow.filterFreq = +(bpmHz * (1 + v * 3)).toFixed(1);
-    fxDisplay.snow.vibrato    = Math.round((0.05 + v * 0.4) * 100);
+    fxDisplay.snow.wah     = Math.round(80 + (1 - v) * 300);
+    fxDisplay.snow.ping    = Math.round(v * 70);
+    fxDisplay.snow.vibrato = Math.round((0.05 + v * 0.4) * 100);
   }
 
-  // TEMP — pingpong + chorus + reverb
+  // TEMP — chebyshev + chorus
   if (stemData.temp.active) {
     const v = liveData.temp.norm;
 
-    // PingPong: warm temps = longer trails (more feedback, wetter)
-    stemData.temp.fx.ping.feedback.setTargetAtTime(0.1 + v * 0.5, now, 0.3);
-    stemData.temp.fx.ping.wet.setTargetAtTime(0.05 + v * 0.5, now, 0.3);
+    // Chebyshev order: cold (v=0) = order 1 (clean), warm (v=1) = order 50 (dense harmonics).
+    // Integer orders only — round to nearest. The jump between orders is audible and intentional.
+    const order = Math.max(1, Math.round(1 + v * 49));
+    stemData.temp.fx.cheby.order = order;
+    stemData.temp.fx.cheby.wet.setTargetAtTime(0.1 + v * 0.85, now, 0.4);
 
-    // Chorus: warm temps = lush depth
-    stemData.temp.fx.chorus.depth = 0.15 + v * 0.75;
+    // Chorus: warm = lush depth
+    stemData.temp.fx.chorus.depth = 0.05 + v * 0.85;
+    stemData.temp.fx.chorus.wet.setTargetAtTime(0.1 + v * 0.7, now, 0.3);
 
-    // Reverb: warm temps = more space
-    stemData.temp.fx.reverb.wet.setTargetAtTime(0.1 + v * 0.65, now, 0.4);
-
-    fxDisplay.temp.ping   = Math.round((0.05 + v * 0.5) * 100);
-    fxDisplay.temp.chorus = Math.round((0.15 + v * 0.75) * 100);
-    fxDisplay.temp.reverb = Math.round((0.1 + v * 0.65) * 100);
+    fxDisplay.temp.cheby  = order;
+    fxDisplay.temp.chorus = Math.round((0.05 + v * 0.85) * 100);
   }
 
   // WIND — filter + distortion
@@ -720,24 +702,19 @@ function runModulation() {
     fxDisplay.wind.dist   = Math.round(v * 100);
   }
 
-  // MARKET — freq shift + waveshaper (BTC-USD via WebSocket)
+  // MARKET — freq shift + reverb (BTC-USD via WebSocket)
   if (stemData.market.active) {
     const v = liveData.market.norm;
 
-    // FrequencyShifter: ±1 semitone range in Hz.
-    // At A4=440Hz, 1 semitone = 440 * (2^(1/12) - 1) ≈ 26.16Hz.
-    // We use ±26Hz as our shift range.
-    // v=0.0 → -26Hz (flat), v=0.5 → 0Hz (in key), v=1.0 → +26Hz (sharp).
-    const shiftHz = (v - 0.5) * 52; // maps 0–1 → -26Hz to +26Hz
-    stemData.market.fx.freqShift.frequency.setTargetAtTime(shiftHz, now, 0.5); // slow ramp keeps it musical
+    // FrequencyShifter: ±26Hz = ±1 semitone at A4
+    const shiftHz = (v - 0.5) * 52;
+    stemData.market.fx.freqShift.frequency.setTargetAtTime(shiftHz, now, 0.5);
 
-    // WaveShaper: BTC volatility = more saturation.
-    // Rebuild curve based on norm — 0=clean(k=5), 1=driven(k=150).
-    const k = 5 + v * 145;
-    stemData.market.fx.waveShape.setMap(x => ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x)));
+    // Reverb: low BTC = tight room, high BTC = long cavernous space
+    stemData.market.fx.reverb.wet.setTargetAtTime(0.05 + v * 0.75, now, 0.4);
 
-    fxDisplay.market.shift = shiftHz.toFixed(1);
-    fxDisplay.market.shape = Math.round(k);
+    fxDisplay.market.shift  = shiftHz.toFixed(1);
+    fxDisplay.market.reverb = Math.round((0.05 + v * 0.75) * 100);
   }
 
   refreshFxPanel();
@@ -764,17 +741,16 @@ const fxPanelConfig = {
   snow: {
     title: 'Precipitation → Lead',
     rows: [
-      { id:'wah',        label:'Wah Base Freq', unit:'Hz', normFn: v => 1 - (v-80)/300 },
-      { id:'filterFreq', label:'Filter LFO',    unit:'Hz', normFn: v => Math.min(1,(v-1)/7) },
-      { id:'vibrato',    label:'Vibrato Depth', unit:'%',  normFn: v => (v-5)/40 },
+      { id:'wah',     label:'Wah Base Freq',  unit:'Hz', normFn: v => Math.max(0, 1 - (v-80)/300) },
+      { id:'ping',    label:'Ping Pong Wet',  unit:'%',  normFn: v => v/70 },
+      { id:'vibrato', label:'Vibrato Depth',  unit:'%',  normFn: v => (v-5)/40 },
     ]
   },
   temp: {
     title: 'Temperature → Lead',
     rows: [
-      { id:'ping',   label:'Ping Pong Wet', unit:'%', normFn: v => (v-5)/50 },
-      { id:'chorus', label:'Chorus Depth',  unit:'%', normFn: v => (v-15)/75 },
-      { id:'reverb', label:'Reverb Wet',    unit:'%', normFn: v => (v-10)/65 },
+      { id:'cheby',  label:'Chebyshev Order', unit:'',  normFn: v => (v-1)/49 },
+      { id:'chorus', label:'Chorus Depth',    unit:'%', normFn: v => (v-5)/85 },
     ]
   },
   wind: {
@@ -787,8 +763,8 @@ const fxPanelConfig = {
   market: {
     title: 'BTC-USD → Keys',
     rows: [
-      { id:'shift', label:'Freq Shift',  unit:'Hz', normFn: v => (parseFloat(v)+26)/52 },
-      { id:'shape', label:'Saturation',  unit:'k',  normFn: v => (v-5)/145 },
+      { id:'shift',  label:'Freq Shift', unit:'Hz', normFn: v => (parseFloat(v)+26)/52 },
+      { id:'reverb', label:'Reverb Wet', unit:'%',  normFn: v => (v-5)/75 },
     ]
   }
 };
