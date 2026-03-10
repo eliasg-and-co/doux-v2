@@ -43,7 +43,24 @@
   .master-play svg{width:11px;height:11px;fill:var(--cream);stroke:none;}
   .player-status{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.4;font-style:italic;}
   .player-hint{font-size:0.6rem;opacity:0.3;font-style:italic;}
-  #spectrum-canvas{width:100%;height:72px;display:block;margin-bottom:2.5rem;}
+  #spectrum-canvas{width:100%;height:72px;display:block;margin-bottom:1.5rem;}
+
+  /* ── Dimmer slider ── */
+  .dimmer-row{display:flex;align-items:center;gap:1.2rem;margin-bottom:2rem;}
+  .dimmer-label{font-size:0.5rem;letter-spacing:0.16em;text-transform:uppercase;opacity:0.4;white-space:nowrap;}
+  .dimmer-track{flex:1;position:relative;height:2px;background:var(--green-line);}
+  .dimmer-fill{position:absolute;left:0;top:0;height:100%;background:var(--green);width:0%;transition:width 0.05s linear;pointer-events:none;}
+  #dimmer-input{
+    position:absolute;top:50%;left:0;transform:translateY(-50%);
+    width:100%;height:18px;margin:0;opacity:0;cursor:crosshair;
+    -webkit-appearance:none;appearance:none;background:transparent;
+  }
+  .dimmer-val{font-family:var(--serif);font-size:0.9rem;font-weight:700;opacity:0.7;min-width:2.5rem;text-align:right;}
+
+  /* ── Per-stem canvas waveforms ── */
+  .stem-canvas{display:block;width:100%;height:26px;margin-bottom:1rem;opacity:0.5;transition:opacity 0.22s;}
+  .stem-tile.active .stem-canvas{opacity:1;}
+
   .stems-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--green-line);border:1px solid var(--green-line);}
   @media(max-width:900px){.stems-grid{grid-template-columns:repeat(3,1fr);}}
   @media(max-width:600px){.stems-grid{grid-template-columns:repeat(2,1fr);}}
@@ -59,11 +76,6 @@
   .stem-tile.active .stem-param{color:var(--cream);}
   .stem-target{font-size:0.62rem;opacity:0.45;font-style:italic;margin-bottom:1rem;transition:color 0.22s,opacity 0.22s;}
   .stem-tile.active .stem-target{color:var(--cream);opacity:0.6;}
-  .stem-mini-wave{width:100%;height:26px;display:flex;align-items:center;gap:1.5px;margin-bottom:1rem;}
-  .stem-mini-wave span{flex:1;border-radius:1px;background:var(--green);opacity:0.12;transform-origin:center;transition:opacity 0.3s,background 0.22s;}
-  .stem-tile:hover .stem-mini-wave span{opacity:0.22;animation:miniWave var(--spd,0.9s) ease-in-out infinite alternate;}
-  .stem-tile.active .stem-mini-wave span{background:var(--cream);opacity:0.45;animation:miniWave var(--spd,0.6s) ease-in-out infinite alternate;}
-  @keyframes miniWave{from{transform:scaleY(0.2)}to{transform:scaleY(1)}}
   .stem-mute{width:100%;padding:0.4rem 0;font-family:var(--mono);font-size:0.48rem;letter-spacing:0.18em;text-transform:uppercase;background:transparent;border:1px solid rgba(45,90,61,0.25);color:var(--green);cursor:crosshair;transition:all 0.18s;display:block;margin-top:auto;}
   .stem-mute:hover{border-color:var(--green);}
   .stem-tile.active .stem-mute{border-color:rgba(245,240,232,0.3);color:var(--cream);}
@@ -165,6 +177,17 @@
     <span class="player-hint">press play first · click tile to activate data</span>
   </div>
   <canvas id="spectrum-canvas"></canvas>
+
+  <!-- Dimmer: master data wet multiplier 0–100 -->
+  <div class="dimmer-row">
+    <span class="dimmer-label">Data depth</span>
+    <div class="dimmer-track">
+      <div class="dimmer-fill" id="dimmer-fill"></div>
+      <input type="range" id="dimmer-input" min="0" max="100" value="0" step="1">
+    </div>
+    <span class="dimmer-val" id="dimmer-val">0</span>
+  </div>
+
   <div class="stems-grid">
 
     <!-- SUBWAY — unchanged -->
@@ -173,9 +196,7 @@
       <div class="stem-source">MTA · L Train</div>
       <div class="stem-param">L Train Delay</div>
       <div class="stem-target">→ drums · bitcrush · filter · feedback</div>
-      <div class="stem-mini-wave" style="--spd:0.42s">
-        <span style="height:85%"></span><span style="height:20%"></span><span style="height:80%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:80%"></span><span style="height:20%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:20%"></span><span style="height:80%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span>
-      </div>
+      <canvas class="stem-canvas" id="canvas-subway" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
       <button class="stem-mute" id="mute-subway">mute</button>
     </div>
 
@@ -185,21 +206,17 @@
       <div class="stem-source">Weather · Precipitation</div>
       <div class="stem-param">Precipitation</div>
       <div class="stem-target">→ lead · autowah · ping pong · vibrato</div>
-      <div class="stem-mini-wave" style="--spd:1.2s">
-        <span style="height:20%"></span><span style="height:40%"></span><span style="height:25%"></span><span style="height:55%"></span><span style="height:35%"></span><span style="height:45%"></span><span style="height:30%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span><span style="height:30%"></span><span style="height:55%"></span><span style="height:20%"></span><span style="height:45%"></span><span style="height:35%"></span><span style="height:60%"></span><span style="height:25%"></span><span style="height:50%"></span><span style="height:40%"></span>
-      </div>
+      <canvas class="stem-canvas" id="canvas-snow" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
       <button class="stem-mute" id="mute-snow">mute</button>
     </div>
 
-    <!-- TEMP — chebyshev · chorus -->
+    <!-- TEMP — chebyshev · chorus · reverb -->
     <div class="stem-tile" id="tile-temp" data-stem="temp" data-param="Temperature">
       <div class="stem-state-badge" id="badge-temp">dry</div>
       <div class="stem-source">Weather · Temperature</div>
       <div class="stem-param">Temperature</div>
-      <div class="stem-target">→ lead · chebyshev · chorus</div>
-      <div class="stem-mini-wave" style="--spd:0.75s">
-        <span style="height:55%"></span><span style="height:75%"></span><span style="height:60%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:55%"></span><span style="height:85%"></span><span style="height:65%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:90%"></span><span style="height:70%"></span><span style="height:60%"></span><span style="height:75%"></span>
-      </div>
+      <div class="stem-target">→ lead · chebyshev · chorus · reverb</div>
+      <canvas class="stem-canvas" id="canvas-temp" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
       <button class="stem-mute" id="mute-temp">mute</button>
     </div>
 
@@ -209,9 +226,7 @@
       <div class="stem-source">Weather · Wind Speed</div>
       <div class="stem-param">Wind Speed</div>
       <div class="stem-target">→ bass · filter · distortion</div>
-      <div class="stem-mini-wave" style="--spd:0.5s">
-        <span style="height:35%"></span><span style="height:65%"></span><span style="height:45%"></span><span style="height:80%"></span><span style="height:30%"></span><span style="height:70%"></span><span style="height:50%"></span><span style="height:85%"></span><span style="height:40%"></span><span style="height:60%"></span><span style="height:75%"></span><span style="height:35%"></span><span style="height:55%"></span><span style="height:90%"></span><span style="height:45%"></span><span style="height:65%"></span><span style="height:30%"></span><span style="height:80%"></span><span style="height:50%"></span><span style="height:70%"></span>
-      </div>
+      <canvas class="stem-canvas" id="canvas-wind" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
       <button class="stem-mute" id="mute-wind">mute</button>
     </div>
 
@@ -221,9 +236,7 @@
       <div class="stem-source">Markets · BTC-USD</div>
       <div class="stem-param">BTC Price</div>
       <div class="stem-target">→ keys · tremolo · reverb</div>
-      <div class="stem-mini-wave" style="--spd:0.32s">
-        <span style="height:30%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:85%"></span><span style="height:15%"></span><span style="height:90%"></span><span style="height:25%"></span><span style="height:80%"></span><span style="height:35%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:75%"></span><span style="height:30%"></span><span style="height:90%"></span><span style="height:15%"></span><span style="height:85%"></span><span style="height:25%"></span><span style="height:95%"></span><span style="height:20%"></span><span style="height:80%"></span>
-      </div>
+      <canvas class="stem-canvas" id="canvas-market" style="width:100%;height:26px;display:block;margin-bottom:1rem;"></canvas>
       <button class="stem-mute" id="mute-market">mute</button>
     </div>
 
@@ -401,14 +414,18 @@ setInterval(fetchMTA, 60000);
 // Norm > 0.5 = price rising (effects push positive direction)
 // Norm < 0.5 = price falling (effects push negative direction)
 //
-// BTC_DELTA_SENSITIVITY = $1500: a $1500 move in 60s = full deflection (0 or 1).
-// Typical BTC moves $100–$500/min, so this gives a responsive but not
-// maxed-out range during normal trading. Volatile sessions will hit the extremes.
+// BTC_DELTA_SENSITIVITY = $200: a $200 move in 60s = full deflection (0 or 1).
+// Typical BTC moves $20–$100/min in normal trading — this gives a
+// responsive range. Volatile sessions will frequently hit the extremes.
+//
+// Delta of 0 (flat market) = norm 0.5 = both effects at 50% wet.
+// Delta of +$200 (rising) = norm 1.0 = max effect.
+// Delta of -$200 (falling) = norm 0.0 = min effect.
 //
 // Display shows: current price + delta arrow + delta amount
 // e.g. "$83,420 ↑ +$340"
 // ══════════════════════════════════════════════════════════════════
-const BTC_DELTA_SENSITIVITY = 1500; // $1500 move in 60s = full effect range
+const BTC_DELTA_SENSITIVITY = 200; // $200 move in 60s = full effect range
 const btcHistory = [];              // rolling price history: [{ price, time }, ...]
 let btcCurrentPrice = null;
 
@@ -512,10 +529,110 @@ let isReady = false, initInProgress = false;
 const STEMS = ['subway','snow','temp','wind','market'];
 const stemData = {};
 STEMS.forEach(k => {
-  stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, active:false, muted:false };
+  stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, active:false, muted:false, analyser:null };
 });
 
-function setStatus(msg){ document.getElementById('player-status').textContent = msg; }
+// ── Dimmer: master data-wet multiplier, 0–1 ───────────────────────
+// Scales the wet gain of ALL active stems simultaneously.
+// 0 = all dry regardless of active state. 1 = full mapped wet values.
+let masterDataWet = 0;
+
+const dimmerInput = document.getElementById('dimmer-input');
+const dimmerFill  = document.getElementById('dimmer-fill');
+const dimmerVal   = document.getElementById('dimmer-val');
+
+dimmerInput.addEventListener('input', () => {
+  const v = parseInt(dimmerInput.value);
+  masterDataWet = v / 100;
+  dimmerFill.style.width = v + '%';
+  dimmerVal.textContent = v;
+  // Apply immediately to all active stems
+  if (isReady) {
+    STEMS.forEach(k => {
+      const s = stemData[k];
+      if (s.active && s.wetGain) s.wetGain.gain.rampTo(masterDataWet, 0.08);
+    });
+  }
+});
+
+// ── Per-stem canvas analysers ─────────────────────────────────────
+const stemCanvases = {};
+STEMS.forEach(k => {
+  const el = document.getElementById('canvas-' + k);
+  if (el) {
+    el.width  = el.offsetWidth  * devicePixelRatio || 200;
+    el.height = el.offsetHeight * devicePixelRatio || 26;
+    stemCanvases[k] = { el, ctx: el.getContext('2d') };
+  }
+});
+window.addEventListener('resize', () => {
+  STEMS.forEach(k => {
+    const sc = stemCanvases[k];
+    if (!sc) return;
+    sc.el.width  = sc.el.offsetWidth  * devicePixelRatio;
+    sc.el.height = sc.el.offsetHeight * devicePixelRatio;
+  });
+});
+
+function drawStemCanvas(key) {
+  const sc = stemCanvases[key];
+  if (!sc) return;
+  const { el, ctx } = sc;
+  const w = el.width, h = el.height;
+  const s = stemData[key];
+  ctx.clearRect(0, 0, w, h);
+
+  const isActive = s.active;
+  const strokeColor = isActive ? 'rgba(245,240,232,0.7)' : 'rgba(45,90,61,0.35)';
+  const fillColor   = isActive ? 'rgba(245,240,232,0.15)' : 'rgba(45,90,61,0.06)';
+
+  if (!s.analyser || !isPlaying) {
+    // idle sine placeholder
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    for (let x = 0; x <= w; x += 2) {
+      ctx.lineTo(x, h / 2 + Math.sin((x / w) * Math.PI * 3 + Date.now() * 0.001) * (h * 0.18));
+    }
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1 * devicePixelRatio;
+    ctx.stroke();
+    return;
+  }
+
+  const vals = s.analyser.getValue();
+  const usable = Math.floor(vals.length * 0.65);
+  const pts = [];
+  for (let i = 0; i < usable; i++) {
+    pts.push([(i / usable) * w, h - Math.max(0, (vals[i] + 100) / 100) * h * 0.92 - h * 0.02]);
+  }
+  if (pts.length < 2) return;
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i+1][0]) / 2, (pts[i][1] + pts[i+1][1]) / 2);
+  }
+  ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]);
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i+1][0]) / 2, (pts[i][1] + pts[i+1][1]) / 2);
+  }
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1.2 * devicePixelRatio;
+  ctx.stroke();
+}
+
+// Animate all stem canvases every frame
+function animateStemCanvases() {
+  STEMS.forEach(k => drawStemCanvas(k));
+  requestAnimationFrame(animateStemCanvases);
+}
+animateStemCanvases();
 
 // (WaveShaper helper removed — no longer used)
 
@@ -555,6 +672,9 @@ async function initAudio() {
       let node = s.player;
       fxNodes.forEach(fx => { node.connect(fx); node = fx; });
       node.connect(s.wetGain);
+      // Per-stem FFT analyser — tapped from masterGain so we see the actual output
+      s.analyser = new Tone.Analyser('fft', 512);
+      s.masterGain.connect(s.analyser);
     }
 
     // ────────────────────────────────────────────────────────────
@@ -742,22 +862,25 @@ function runModulation() {
 
   // MARKET — tremolo + reverb (BTC-USD 60s delta via WebSocket)
   if (stemData.market.active) {
-    const v = liveData.market.norm; // 0.5 = flat, 0/1 = full move down/up
+    const v = liveData.market.norm; // 0.5 = flat, 0/1 = full move
 
-    // Distance from centre (0.5) = volatility magnitude, 0–0.5 range → scale to 0–1
-    const magnitude = Math.abs(v - 0.5) * 2; // 0 = calm, 1 = max delta
+    // Distance from centre = volatility magnitude (0=calm, 1=max delta)
+    const magnitude = Math.abs(v - 0.5) * 2;
 
-    // Tremolo: calm market = barely there. Strong move (either direction) = fast flutter.
-    // Rate: 0.5Hz at rest → 8Hz at full volatility. Depth: 0 → 0.75.
-    stemData.market.fx.tremolo.frequency.setTargetAtTime(0.5 + magnitude * 7.5, now, 0.3);
-    stemData.market.fx.tremolo.depth.setTargetAtTime(magnitude * 0.75, now, 0.3);
-    stemData.market.fx.tremolo.wet.setTargetAtTime(0.1 + magnitude * 0.8, now, 0.3);
+    // Tremolo: flat market = slow subtle flutter at 50% wet.
+    // Strong move (either direction) = fast deep flutter at full wet.
+    // Rate 1Hz at rest → 8Hz max. Depth 0.15 → 0.85. Wet 0.5 → 1.0.
+    stemData.market.fx.tremolo.frequency.setTargetAtTime(1 + magnitude * 7, now, 0.3);
+    stemData.market.fx.tremolo.depth.setTargetAtTime(0.15 + magnitude * 0.7, now, 0.3);
+    stemData.market.fx.tremolo.wet.setTargetAtTime(0.5 + magnitude * 0.5, now, 0.3);
 
-    // Reverb: volatile market = vast space
-    stemData.market.fx.reverb.wet.setTargetAtTime(0.05 + magnitude * 0.8, now, 0.5);
+    // Reverb: flat market = 50% wet. Volatile = full wet.
+    // rampTo required — Tone.Reverb wet does not support setTargetAtTime
+    const targetRevWet = 0.5 + magnitude * 0.5;
+    stemData.market.fx.reverb.wet.rampTo(targetRevWet, 0.5);
 
-    fxDisplay.market.tremolo = +(0.5 + magnitude * 7.5).toFixed(1);
-    fxDisplay.market.reverb  = Math.round((0.05 + magnitude * 0.8) * 100);
+    fxDisplay.market.tremolo = +(1 + magnitude * 7).toFixed(1);
+    fxDisplay.market.reverb  = Math.round(targetRevWet * 100);
   }
 
   refreshFxPanel();
@@ -807,8 +930,8 @@ const fxPanelConfig = {
   market: {
     title: 'BTC-USD 60s Delta → Keys',
     rows: [
-      { id:'tremolo', label:'Tremolo Rate', unit:'Hz', normFn: v => (v-0.5)/7.5 },
-      { id:'reverb',  label:'Reverb Wet',  unit:'%',  normFn: v => (v-5)/80 },
+      { id:'tremolo', label:'Tremolo Rate', unit:'Hz', normFn: v => (v-1)/7 },
+      { id:'reverb',  label:'Reverb Wet',  unit:'%',  normFn: v => (v-50)/50 },
     ]
   }
 };
@@ -900,7 +1023,7 @@ STEMS.forEach(key => {
     } else {
       s.active = true;
       s.dryGain.gain.rampTo(0, 0.35);
-      s.wetGain.gain.rampTo(1, 0.35);
+      s.wetGain.gain.rampTo(masterDataWet, 0.35);
       tile.classList.add('active');
       badge.textContent = 'data active';
       const n = STEMS.filter(k => stemData[k].active).length;
