@@ -527,12 +527,12 @@ async function initAudio() {
     stemData.market.fx.tremolo   = new Tone.Tremolo({ frequency:1, depth:0.1, wet:0.5 }).start();
     makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.tremolo]);
 
-    // TIME — perc: HighPass → Tremolo
+    // TIME — perc: HighPass → BitCrusher
     // Solar noon (norm=1) → HP at 80Hz (full body through), midnight (norm=0) → HP at 2200Hz (transients only)
-    // Tremolo: noon = slow/subtle (0.5Hz/0.05 depth), midnight = fast/deep (6Hz/0.75 depth)
-    stemData.time.fx.hipass  = new Tone.Filter({ frequency:1200, type:'highpass' });
-    stemData.time.fx.tremolo = new Tone.Tremolo({ frequency:2, depth:0.3 }).start();
-    makeStemRouting('time', [stemData.time.fx.hipass, stemData.time.fx.tremolo]);
+    // BitCrusher: noon = clean (8 bits), midnight = crushed (3 bits)
+    stemData.time.fx.hipass = new Tone.Filter({ frequency:1200, type:'highpass' });
+    stemData.time.fx.bits   = new Tone.BitCrusher(8);
+    makeStemRouting('time', [stemData.time.fx.hipass, stemData.time.fx.bits]);
 
     setStatus('· buffering audio ·');
     // Log each player's load state — helps diagnose 404s or slow loads
@@ -580,7 +580,7 @@ const fxDisplay = {
   temp:   { ping:0,   chorus:15,   reverb:5   },
   wind:   { filter:800, dist:0 },
   market: { shift:'0.0', tremolo:1 },
-  time:   { hipass:1200, tremolo:2 },
+  time:   { hipass:1200, bits:8 },
 };
 
 function runModulation() {
@@ -650,17 +650,15 @@ function runModulation() {
     fxDisplay.market.tremolo = +(0.5 + magnitude*7.5).toFixed(1);
   }
 
-  // TIME — highpass + tremolo (solar arc norm)
+  // TIME — highpass + bitcrusher (solar arc norm)
   if (stemData.time.active) {
     const v = liveData.time.norm; // 0=midnight, 1=solar noon
     const hpFreq = 80 + (1-v)*2120; // noon=80Hz open, midnight=2200Hz closed
     stemData.time.fx.hipass.frequency.setTargetAtTime(hpFreq, now, 1.0);
-    const tremoloRate  = 0.5 + (1-v)*5.5;  // noon=0.5Hz, midnight=6Hz
-    const tremoloDepth = 0.05 + (1-v)*0.7; // noon=0.05, midnight=0.75
-    stemData.time.fx.tremolo.frequency.setTargetAtTime(tremoloRate,  now, 2.0);
-    stemData.time.fx.tremolo.depth.setTargetAtTime(tremoloDepth, now, 2.0);
-    fxDisplay.time.hipass  = Math.round(hpFreq);
-    fxDisplay.time.tremolo = +tremoloRate.toFixed(1);
+    // BitCrusher: noon=8 bits (clean), midnight=3 bits (heavily crushed)
+    stemData.time.fx.bits.bits = Math.round(3 + v*5);
+    fxDisplay.time.hipass = Math.round(hpFreq);
+    fxDisplay.time.bits   = Math.round(3 + v*5);
   }
 
   refreshFxPanel();
@@ -777,8 +775,8 @@ const fxPanelConfig = {
   time: {
     title: 'Hour of Day → Percussion',
     rows: [
-      { id:'hipass',  label:'HP Cutoff',    unit:'Hz', src:'Hour of day', normFn: v => 1-(v-80)/2120 },
-      { id:'tremolo', label:'Tremolo Rate', unit:'Hz', src:'Hour of day', normFn: v => (v-0.5)/5.5 },
+      { id:'hipass', label:'HP Cutoff',  unit:'Hz',  src:'Hour of day', normFn: v => 1-(v-80)/2120 },
+      { id:'bits',   label:'Bit Depth',  unit:'bits', src:'Hour of day', normFn: v => (v-3)/5 },
     ]
   },
 };
