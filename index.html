@@ -749,7 +749,21 @@ async function initAudio() {
     makeStemRouting('market', [stemData.market.fx.tremolo, stemData.market.fx.reverb]);
 
     setStatus('· buffering audio ·');
-    await Tone.loaded();
+
+    // Log each player's load state for debugging
+    STEMS.forEach(k => {
+      const p = stemData[k].player;
+      if (p && p.buffer) {
+        p.buffer.onload  = () => console.log(`✓ loaded: ${k}`);
+        p.buffer.onerror = (e) => console.error(`✗ failed: ${k}`, e);
+      }
+    });
+
+    // Tone.loaded() can hang forever if a file 404s — add a 15s timeout
+    await Promise.race([
+      Tone.loaded(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Audio load timeout — check stem file paths')), 15000))
+    ]);
 
     isReady = true;
     initInProgress = false;
@@ -985,7 +999,11 @@ document.getElementById('master-play-btn').addEventListener('click', async () =>
   if (typeof Tone === 'undefined') { setStatus('· Tone.js not loaded ·'); return; }
   const icon  = document.getElementById('play-icon');
   const label = document.getElementById('play-label');
-  if (!isReady) { const ok = await initAudio(); if (!ok) return; }
+  if (!isReady) {
+    setStatus('· initialising · please wait ·');
+    const ok = await initAudio();
+    if (!ok) return;
+  }
   if (isPlaying) {
     stopAll();
     icon.innerHTML = '<polygon points="0,0 10,6 0,12"/>';
