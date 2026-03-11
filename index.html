@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-<!-- Tone.js loaded synchronously, no defer, no module — must resolve before any script below -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
 <style>
   :root {
@@ -44,11 +43,8 @@
   .master-play svg{width:11px;height:11px;fill:var(--cream);stroke:none;}
   .player-status{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.4;font-style:italic;}
   .player-hint{font-size:0.6rem;opacity:0.3;font-style:italic;}
-
-  /* consequence line above play */
   .player-consequence{font-family:var(--serif);font-size:clamp(1rem,2vw,1.5rem);font-weight:700;line-height:1.3;letter-spacing:-0.01em;opacity:0.82;margin-bottom:1.8rem;max-width:600px;}
   .player-consequence em{font-style:italic;font-weight:400;opacity:0.6;}
-
   #spectrum-canvas{width:100%;height:72px;display:block;margin-bottom:2.5rem;}
   .stems-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--green-line);border:1px solid var(--green-line);}
   @media(max-width:1100px){.stems-grid{grid-template-columns:repeat(3,1fr);}}
@@ -65,24 +61,13 @@
   .stem-tile.active .stem-param{color:var(--cream);}
   .stem-target{font-size:0.62rem;opacity:0.45;font-style:italic;margin-bottom:1rem;transition:color 0.22s,opacity 0.22s;}
   .stem-tile.active .stem-target{color:var(--cream);opacity:0.6;}
-
-  /* per-stem canvas — replaces static spans */
   .stem-canvas{display:block;width:100%;height:26px;margin-bottom:1rem;}
-
   .stem-mute{width:100%;padding:0.4rem 0;font-family:var(--mono);font-size:0.48rem;letter-spacing:0.18em;text-transform:uppercase;background:transparent;border:1px solid rgba(45,90,61,0.25);color:var(--green);cursor:crosshair;transition:all 0.18s;display:block;margin-top:auto;}
   .stem-mute:hover{border-color:var(--green);}
   .stem-tile.active .stem-mute{border-color:rgba(245,240,232,0.3);color:var(--cream);}
   .stem-tile.active .stem-mute.is-muted{background:rgba(245,240,232,0.15);border-color:var(--cream)!important;}
   .stem-mute.is-muted{background:var(--green-faint);border-color:var(--green)!important;}
-
-  /* ── FX Panel ── */
-  .fx-panel{
-    position:fixed;bottom:2rem;right:2rem;width:260px;
-    background:var(--cream);border:1px solid var(--green-line);
-    z-index:300;box-shadow:0 4px 24px rgba(45,90,61,0.08);
-    opacity:0;transform:translateY(10px);pointer-events:none;
-    transition:opacity 0.22s ease,transform 0.22s ease;
-  }
+  .fx-panel{position:fixed;bottom:2rem;right:2rem;width:260px;background:var(--cream);border:1px solid var(--green-line);z-index:300;box-shadow:0 4px 24px rgba(45,90,61,0.08);opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity 0.22s ease,transform 0.22s ease;}
   .fx-panel.visible{opacity:1;transform:translateY(0);pointer-events:all;}
   .fx-panel-head{display:flex;justify-content:space-between;align-items:center;padding:0.8rem 1.1rem;border-bottom:1px solid var(--green-line);}
   .fx-panel-title{font-size:0.5rem;letter-spacing:0.18em;text-transform:uppercase;opacity:0.5;display:flex;align-items:center;gap:0.45rem;}
@@ -100,7 +85,6 @@
   .fx-fill::after{content:'';position:absolute;right:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--cream);}
   .fx-source{font-size:0.44rem;opacity:0.28;font-style:italic;margin-top:0.3rem;}
   .fx-data-val{font-size:0.44rem;opacity:0.5;margin-top:0.15rem;letter-spacing:0.05em;}
-
   footer{position:relative;z-index:1;border-top:1px solid var(--green-line);padding:2rem 2.5rem;display:flex;justify-content:space-between;align-items:center;}
   footer span{font-size:0.6rem;letter-spacing:0.1em;opacity:0.3;text-transform:uppercase;}
   @media(max-width:600px){
@@ -108,11 +92,13 @@
     .hero-meta{grid-template-columns:1fr;}footer{flex-direction:column;gap:0.5rem;align-items:flex-start;}
     .fx-panel{right:1rem;left:1rem;width:auto;}
   }
+  #track-loading{position:fixed;inset:0;background:var(--cream);z-index:9999;display:flex;align-items:center;justify-content:center;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;opacity:0.4;transition:opacity 0.3s;}
 </style>
 </head>
 <body>
 
-<!-- FX overlay -->
+<div id="track-loading">· loading track ·</div>
+
 <div class="fx-panel" id="fx-panel">
   <div class="fx-panel-head">
     <div class="fx-panel-title" id="fx-panel-title">Effects</div>
@@ -129,7 +115,7 @@
     <svg viewBox="0 0 24 24"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>
     <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
   </div>
-  <div class="nav-title">doux · live data player · blizzard 02.23.26</div>
+  <div class="nav-title" id="nav-title">doux · live data player</div>
   <a href="https://eegee.substack.com" target="_blank" style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.5;color:var(--green);text-decoration:none;border-bottom:1px solid rgba(45,90,61,0.25);padding-bottom:1px;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">Read the dispatches →</a>
 </nav>
 
@@ -139,20 +125,18 @@
   <div class="hero-meta">
     <div class="meta-block">
       <label><span class="live-dot"></span>Now playing</label>
-      <p>This track is different right now than it was an hour ago. It will also be different tomorrow.</p>
+      <p id="hero-body">—</p>
     </div>
     <div class="meta-block">
       <label>How it works</label>
-      <p>Six live data sources modulate the stems in real time — transit, weather, markets, the hour of day. Press play. Click any tile.</p>
+      <p id="how-it-works">—</p>
     </div>
   </div>
 </section>
 
 <section id="player">
-  <div class="section-label">· six stems · six data sources · infinite states</div>
-
-  <div class="player-consequence">The same recording.<br><em>Never the same twice.</em></div>
-
+  <div class="section-label" id="section-label">·</div>
+  <div class="player-consequence" id="player-consequence"></div>
   <div class="player-header">
     <div class="player-controls">
       <button class="master-play" id="master-play-btn">
@@ -164,77 +148,21 @@
     <span class="player-hint">press play first · click tile to activate data</span>
   </div>
   <canvas id="spectrum-canvas"></canvas>
-  <div class="stems-grid">
-
-    <div class="stem-tile" id="tile-subway" data-stem="subway" data-param="L Train Delay">
-      <div class="stem-state-badge" id="badge-subway">dry</div>
-      <div class="stem-source">MTA · L Train</div>
-      <div class="stem-param">L Train Delay</div>
-      <div class="stem-target">→ drums · bitcrush · filter · feedback</div>
-      <canvas class="stem-canvas" id="canvas-subway"></canvas>
-      <button class="stem-mute" id="mute-subway">mute</button>
-    </div>
-
-    <div class="stem-tile" id="tile-snow" data-stem="snow" data-param="Precipitation">
-      <div class="stem-state-badge" id="badge-snow">dry</div>
-      <div class="stem-source">Weather · Precipitation</div>
-      <div class="stem-param">Precipitation</div>
-      <div class="stem-target">→ lead · autowah · autofilter · vibrato · pump</div>
-      <canvas class="stem-canvas" id="canvas-snow"></canvas>
-      <button class="stem-mute" id="mute-snow">mute</button>
-    </div>
-
-    <div class="stem-tile" id="tile-temp" data-stem="temp" data-param="Temperature">
-      <div class="stem-state-badge" id="badge-temp">dry</div>
-      <div class="stem-source">Weather · Temperature</div>
-      <div class="stem-param">Temperature</div>
-      <div class="stem-target">→ lead · ping pong · chorus · reverb</div>
-      <canvas class="stem-canvas" id="canvas-temp"></canvas>
-      <button class="stem-mute" id="mute-temp">mute</button>
-    </div>
-
-    <div class="stem-tile" id="tile-wind" data-stem="wind" data-param="Wind Speed">
-      <div class="stem-state-badge" id="badge-wind">dry</div>
-      <div class="stem-source">Weather · Wind Speed</div>
-      <div class="stem-param">Wind Speed</div>
-      <div class="stem-target">→ bass · filter · distortion</div>
-      <canvas class="stem-canvas" id="canvas-wind"></canvas>
-      <button class="stem-mute" id="mute-wind">mute</button>
-    </div>
-
-    <div class="stem-tile" id="tile-market" data-stem="market" data-param="BTC Price">
-      <div class="stem-state-badge" id="badge-market">dry</div>
-      <div class="stem-source">Markets · BTC-USD</div>
-      <div class="stem-param">BTC Price</div>
-      <div class="stem-target">→ keys · freq shift · tremolo</div>
-      <canvas class="stem-canvas" id="canvas-market"></canvas>
-      <button class="stem-mute" id="mute-market">mute</button>
-    </div>
-
-    <div class="stem-tile" id="tile-time" data-stem="time" data-param="Hour of Day">
-      <div class="stem-state-badge" id="badge-time">dry</div>
-      <div class="stem-source">Time · Hour of Day</div>
-      <div class="stem-param" id="time-display">—:—</div>
-      <div class="stem-target">→ perc · highpass · bitcrush</div>
-      <canvas class="stem-canvas" id="canvas-time"></canvas>
-      <button class="stem-mute" id="mute-time">mute</button>
-    </div>
-
-  </div>
+  <div class="stems-grid" id="stems-grid"></div>
 </section>
 
 <section id="cta" style="border-top:1px solid var(--green-line);padding:4rem 2.5rem;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;">
   <div style="max-width:520px;">
     <div style="font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;opacity:0.35;margin-bottom:1rem;">· early access</div>
-    <div style="font-family:var(--serif);font-size:clamp(1.6rem,4vw,2.8rem);font-weight:800;line-height:1.1;letter-spacing:-0.01em;margin-bottom:1rem;">A new, everchanging format for recorded music.</div>
-    <p style="font-size:0.75rem;line-height:1.7;opacity:0.55;max-width:380px;">The same song, infinite valid states. Every version shaped by the world around you. Join the dispatch list.</p>
+    <div id="cta-headline" style="font-family:var(--serif);font-size:clamp(1.6rem,4vw,2.8rem);font-weight:800;line-height:1.1;letter-spacing:-0.01em;margin-bottom:1rem;">—</div>
+    <p id="cta-body" style="font-size:0.75rem;line-height:1.7;opacity:0.55;max-width:380px;">—</p>
   </div>
   <a href="https://eegee.substack.com" target="_blank" style="display:inline-flex;align-items:center;gap:0.6rem;background:var(--green);color:var(--cream);padding:0.9rem 1.8rem;font-family:var(--mono);font-size:0.6rem;letter-spacing:0.18em;text-transform:uppercase;text-decoration:none;cursor:crosshair;transition:opacity 0.2s;white-space:nowrap;" onmouseover="this.style.opacity='0.82'" onmouseout="this.style.opacity='1'">Join the dispatch list →</a>
 </section>
 
 <footer style="position:relative;z-index:1;border-top:1px solid var(--green-line);padding:2.5rem 2.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1.5rem;">
   <div style="display:flex;flex-direction:column;gap:0.4rem;">
-    <span style="font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.3;">blizzard 02.23.26 · NYC</span>
+    <span id="footer-track" style="font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.3;">—</span>
   </div>
   <div style="display:flex;align-items:center;gap:2rem;">
     <a href="https://eegee.substack.com" target="_blank" style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.45;color:var(--green);text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.45'">Substack ↗</a>
@@ -245,21 +173,11 @@
 </footer>
 
 <script>
-// ══════════════════════════════════════
-// SANITY CHECK
-// ══════════════════════════════════════
 if (typeof Tone === 'undefined') {
   document.getElementById('player-status').textContent = '· Tone.js failed to load — check network connection ·';
 }
 
-// ══════════════════════════════════════
-// TRACK BPM
-// ══════════════════════════════════════
-const TRACK_BPM = 127;
-
-// ══════════════════════════════════════
-// BACKGROUND CANVAS — identical to original
-// ══════════════════════════════════════
+// ── Background canvas ──────────────────────────────────────────────
 const bgSvg = document.getElementById('data-canvas');
 let bgLines = [], bgT = 0;
 const vW = () => window.innerWidth, vH = () => window.innerHeight;
@@ -293,9 +211,7 @@ function renderBg() {
 function bgTick(){bgT+=0.006;renderBg();requestAnimationFrame(bgTick);}
 initBgLines();bgTick();window.addEventListener('resize',initBgLines);
 
-// ══════════════════════════════════════
-// SPECTRUM — identical to original
-// ══════════════════════════════════════
+// ── Spectrum ───────────────────────────────────────────────────────
 const specEl=document.getElementById('spectrum-canvas'),spec2d=specEl.getContext('2d');
 let toneAnalyser=null,specT=0,isPlaying=false;
 function resizeSpec(){specEl.width=specEl.offsetWidth*devicePixelRatio;specEl.height=specEl.offsetHeight*devicePixelRatio;}
@@ -321,9 +237,7 @@ function drawSpectrum(){
 }
 drawSpectrum();
 
-// ══════════════════════════════════════
-// LIVE DATA
-// ══════════════════════════════════════
+// ── Live data ──────────────────────────────────────────────────────
 const liveData = {
   temp:   { norm: 0.45, display: '55°F',    label: 'Temperature' },
   wind:   { norm: 0.25, display: '10 mph',  label: 'Wind Speed' },
@@ -332,19 +246,14 @@ const liveData = {
   market: { norm: 0.5,  display: '$—',      label: 'BTC-USD' },
   time:   { norm: 0.5,  display: '—:—',     label: 'Hour of Day' },
 };
-
-// Time of day — solar arc norm, updates every 30s
 function getSolarNorm() {
-  const now = new Date();
-  const h = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
-  return (Math.sin((h/24)*Math.PI*2 - Math.PI/2) + 1) / 2; // 0=midnight, 1=solar noon
+  const now = new Date(), h = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+  return (Math.sin((h/24)*Math.PI*2 - Math.PI/2) + 1) / 2;
 }
 function updateTimeStem() {
   const now = new Date();
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  const norm = getSolarNorm();
-  liveData.time = { norm, display: `${hh}:${mm}`, label: 'Hour of Day' };
+  const hh = String(now.getHours()).padStart(2,'0'), mm = String(now.getMinutes()).padStart(2,'0');
+  liveData.time = { norm: getSolarNorm(), display: `${hh}:${mm}`, label: 'Hour of Day' };
   const el = document.getElementById('time-display');
   if (el) el.textContent = `${hh}:${mm}`;
 }
@@ -353,16 +262,10 @@ setInterval(updateTimeStem, 30000);
 
 async function fetchWeather() {
   try {
-    const res = await fetch(
-      'https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060' +
-      '&current=temperature_2m,wind_speed_10m,precipitation&temperature_unit=fahrenheit&wind_speed_unit=mph',
-      { signal: AbortSignal.timeout(5000) }
-    );
+    const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,wind_speed_10m,precipitation&temperature_unit=fahrenheit&wind_speed_unit=mph', { signal: AbortSignal.timeout(5000) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
-    const t = d.current.temperature_2m;
-    const w = d.current.wind_speed_10m;
-    const p = d.current.precipitation;
+    const t = d.current.temperature_2m, w = d.current.wind_speed_10m, p = d.current.precipitation;
     liveData.temp   = { norm: Math.max(0,Math.min(1,(t-10)/90)),   display: Math.round(t)+'°F',   label:'Temperature' };
     liveData.wind   = { norm: Math.min(1,w/40),                    display: Math.round(w)+' mph',  label:'Wind Speed' };
     liveData.snow   = { norm: Math.min(1,p/8),                     display: p.toFixed(1)+' mm/hr', label:'Precipitation' };
@@ -372,8 +275,7 @@ async function fetchWeather() {
     document.getElementById('live-readout').textContent = '· demo mode · deploy to vercel for live data ·';
   }
 }
-fetchWeather();
-setInterval(fetchWeather, 60000);
+fetchWeather(); setInterval(fetchWeather, 60000);
 
 async function fetchMTA() {
   try {
@@ -381,25 +283,17 @@ async function fetchMTA() {
     if (!r.ok) throw new Error(`MTA API ${r.status}`);
     const d = await r.json();
     liveData.subway = { norm: d.norm, display: d.display, label: 'L Train', raw: d.combined };
-  } catch(e) {
-    console.warn('MTA fetch failed, keeping last value:', e.message);
-  }
+  } catch(e) { console.warn('MTA fetch failed:', e.message); }
 }
-fetchMTA();
-setInterval(fetchMTA, 60000);
+fetchMTA(); setInterval(fetchMTA, 60000);
 
-// ── BTC-USD Coinbase WebSocket — 60s delta normalization ──────────
-// norm 0.5 = flat market. Full deflection at ±$200 in 60s.
-const BTC_DELTA_SENSITIVITY = 200;
-const btcHistory = [];
+const BTC_DELTA_SENSITIVITY = 200, btcHistory = [];
 let btcCurrentPrice = null;
-
 function computeBtcDeltaNorm() {
   if (!btcCurrentPrice || btcHistory.length < 2) return 0.5;
   const ref = btcHistory.find(p => p.time >= Date.now() - 60000);
   if (!ref) return 0.5;
-  const delta = btcCurrentPrice - ref.price;
-  return Math.max(0, Math.min(1, 0.5 + delta / (BTC_DELTA_SENSITIVITY * 2)));
+  return Math.max(0, Math.min(1, 0.5 + (btcCurrentPrice - ref.price) / (BTC_DELTA_SENSITIVITY * 2)));
 }
 function formatBtcDelta(d) {
   if (Math.abs(d) < 0.01) return '→ $0';
@@ -407,12 +301,8 @@ function formatBtcDelta(d) {
 }
 function connectCoinbase() {
   let ws;
-  try { ws = new WebSocket('wss://advanced-trade-ws.coinbase.com/'); }
-  catch(e) { setTimeout(connectCoinbase, 5000); return; }
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type:'subscribe', product_ids:['BTC-USD'], channel:'ticker' }));
-    document.getElementById('btc-readout').textContent = '· btc live ·';
-  };
+  try { ws = new WebSocket('wss://advanced-trade-ws.coinbase.com/'); } catch(e) { setTimeout(connectCoinbase, 5000); return; }
+  ws.onopen = () => { ws.send(JSON.stringify({ type:'subscribe', product_ids:['BTC-USD'], channel:'ticker' })); document.getElementById('btc-readout').textContent = '· btc live ·'; };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
@@ -424,69 +314,133 @@ function connectCoinbase() {
         while (btcHistory.length && btcHistory[0].time < Date.now() - 90000) btcHistory.shift();
         const ref60 = btcHistory.find(p => p.time >= Date.now() - 60000);
         const delta60 = ref60 ? price - ref60.price : 0;
-        liveData.market = {
-          norm: computeBtcDeltaNorm(),
-          display: `$${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)}`,
-          delta: delta60, raw: price, label: 'BTC-USD',
-        };
-        document.getElementById('btc-readout').textContent =
-          `· BTC $${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)} ·`;
+        liveData.market = { norm: computeBtcDeltaNorm(), display: `$${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)}`, delta: delta60, raw: price, label: 'BTC-USD' };
+        document.getElementById('btc-readout').textContent = `· BTC $${Math.round(price).toLocaleString()} ${formatBtcDelta(delta60)} ·`;
       }
     } catch(err) {}
   };
-  ws.onclose = () => {
-    document.getElementById('btc-readout').textContent = '· btc reconnecting ·';
-    setTimeout(connectCoinbase, 3000);
-  };
+  ws.onclose = () => { document.getElementById('btc-readout').textContent = '· btc reconnecting ·'; setTimeout(connectCoinbase, 3000); };
   ws.onerror = () => ws.close();
 }
 connectCoinbase();
 
-// ══════════════════════════════════════
-// AUDIO ENGINE
-// ══════════════════════════════════════
+// ── Track config ───────────────────────────────────────────────────
+// normFns keyed by "stemKey.rowId" — not serializable so kept in JS
+const NORM_FNS = {
+  'subway.bits':     v => (8-v)/5,
+  'subway.filter':   v => (v-300)/3500,
+  'subway.feedback': v => (v-10)/55,
+  'snow.wah':        v => Math.max(0,1-(v-80)/300),
+  'snow.autoFilter': v => v/85,
+  'snow.vibrato':    v => (v-2)/8,
+  'snow.pump':       v => v/100,
+  'temp.ping':       v => v/70,
+  'temp.chorus':     v => (v-5)/75,
+  'temp.reverb':     v => (v-5)/65,
+  'wind.filter':     v => (v-100)/3500,
+  'wind.dist':       v => v/100,
+  'market.shift':    v => (parseFloat(v)+26)/52,
+  'market.tremolo':  v => (v-0.5)/7.5,
+  'time.hipass':     v => 1-(v-80)/2120,
+  'time.bits':       v => (v-3)/5,
+};
+
+let TRACK = null, STEMS = [];
+let fxPanelConfig = {}, fxDisplay = {};
+
+function buildFromTrack(track) {
+  TRACK = track;
+  STEMS = track.stems.map(s => s.key);
+  const m = track.meta;
+
+  document.getElementById('nav-title').textContent    = m.navLabel;
+  document.getElementById('hero-body').textContent    = m.heroBody;
+  document.getElementById('how-it-works').textContent = m.howItWorks;
+  document.getElementById('section-label').textContent = m.sectionLabel;
+  document.getElementById('cta-headline').textContent = m.ctaHeadline;
+  document.getElementById('cta-body').textContent     = m.ctaBody;
+  document.getElementById('footer-track').textContent = m.footerTrack;
+  document.title = `doux — ${track.title}`;
+  document.getElementById('player-consequence').innerHTML = `${m.consequence}<br><em>${m.consequenceEm}</em>`;
+
+  // Build stems grid
+  document.getElementById('stems-grid').innerHTML = track.stems.map(s => `
+    <div class="stem-tile" id="tile-${s.key}" data-stem="${s.key}" data-param="${s.label}">
+      <div class="stem-state-badge" id="badge-${s.key}">dry</div>
+      <div class="stem-source">${s.source}</div>
+      <div class="stem-param"${s.key === 'time' ? ' id="time-display"' : ''}>${s.key === 'time' ? '—:—' : s.label}</div>
+      <div class="stem-target">${s.target}</div>
+      <canvas class="stem-canvas" id="canvas-${s.key}"></canvas>
+      <button class="stem-mute" id="mute-${s.key}">mute</button>
+    </div>
+  `).join('');
+
+  // Build fxPanelConfig from track.json rows + NORM_FNS
+  track.stems.forEach(s => {
+    fxPanelConfig[s.key] = {
+      title: s.fxPanel.title,
+      rows: s.fxPanel.rows.map(r => ({ ...r, normFn: NORM_FNS[`${s.key}.${r.id}`] || (v => v) })),
+    };
+  });
+
+  // Seed fxDisplay defaults
+  fxDisplay = {
+    subway: { bits:8,     filter:2000, feedback:20 },
+    snow:   { wah:200,    autoFilter:0, vibrato:4, pump:100 },
+    temp:   { ping:0,     chorus:15,   reverb:5   },
+    wind:   { filter:800, dist:0 },
+    market: { shift:'0.0', tremolo:1 },
+    time:   { hipass:1200, bits:8 },
+  };
+
+  attachTileInteractions();
+  attachMuteInteractions();
+  initStemCanvases();
+  drawStemCanvases();
+  updateTimeStem();
+  document.getElementById('track-loading').style.display = 'none';
+}
+
+async function loadTrack() {
+  try {
+    const res = await fetch('track.json');
+    if (!res.ok) throw new Error(`track.json ${res.status}`);
+    buildFromTrack(await res.json());
+  } catch(e) {
+    console.error('Failed to load track.json:', e);
+    document.getElementById('track-loading').textContent = '· error loading track config ·';
+  }
+}
+
+// ── Audio engine ───────────────────────────────────────────────────
 let isReady = false, initInProgress = false;
-
-const STEMS = ['subway','snow','temp','wind','market','time'];
 const stemData = {};
-STEMS.forEach(k => {
-  stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, analyser:null, active:false, muted:false };
-});
-
 function setStatus(msg){ document.getElementById('player-status').textContent = msg; }
 
 async function initAudio() {
   if (initInProgress || isReady) return isReady;
   initInProgress = true;
   setStatus('· starting audio context ·');
-
+  STEMS.forEach(k => { stemData[k] = { player:null, dryGain:null, wetGain:null, masterGain:null, fx:{}, analyser:null, active:false, muted:false }; });
   try {
     await Tone.start();
     setStatus('· loading stems ·');
-
+    const TRACK_BPM = TRACK.bpm;
     const masterLimiter    = new Tone.Limiter(-3).toDestination();
-    const masterCompressor = new Tone.Compressor({
-      threshold: -18, knee: 8, ratio: 4, attack: 0.003, release: 0.25,
-    }).connect(masterLimiter);
+    const masterCompressor = new Tone.Compressor({ threshold:-18, knee:8, ratio:4, attack:0.003, release:0.25 }).connect(masterLimiter);
     const masterBus = new Tone.Gain(0.72).connect(masterCompressor);
     toneAnalyser = new Tone.Analyser('fft', 2048);
     masterBus.connect(toneAnalyser);
-
-    // Pre-generate IR reverbs before Tone.loaded()
-    const revSnow = new Tone.Reverb({ decay:3.0, preDelay:0.01 });
     const revTemp = new Tone.Reverb({ decay:2.5, preDelay:0.01 });
-    await Promise.all([revSnow.generate(), revTemp.generate()]);
+    await revTemp.generate();
 
-    // Routing: player → dryGain ↘
-    //          player → fx chain → wetGain → masterGain → masterBus
-    //                              dryGain ↗
-    // Per-stem analyser tapped from masterGain for tile waveforms.
     function makeStemRouting(key, fxNodes) {
       const s = stemData[key];
+      const stemCfg = TRACK.stems.find(x => x.key === key);
       s.masterGain = new Tone.Gain(1).connect(masterBus);
       s.dryGain    = new Tone.Gain(1).connect(s.masterGain);
       s.wetGain    = new Tone.Gain(0).connect(s.masterGain);
-      s.player     = new Tone.Player({ url:'stems_for_player/'+key+'_dry.mp3', loop:true, autostart:false });
+      s.player     = new Tone.Player({ url: stemCfg.file, loop:true, autostart:false });
       s.player.connect(s.dryGain);
       let node = s.player;
       fxNodes.forEach(fx => { node.connect(fx); node = fx; });
@@ -495,71 +449,47 @@ async function initAudio() {
       s.masterGain.connect(s.analyser);
     }
 
-    // SUBWAY — drums: BitCrusher → Filter → FeedbackDelay (UNCHANGED from original)
     stemData.subway.fx.bits   = new Tone.BitCrusher(8);
     stemData.subway.fx.filter = new Tone.Filter({ frequency:2000, type:'lowpass' });
     stemData.subway.fx.delay  = new Tone.FeedbackDelay({ delayTime:'8n', feedback:0.2, wet:0.5 });
     makeStemRouting('subway', [stemData.subway.fx.bits, stemData.subway.fx.filter, stemData.subway.fx.delay]);
 
-    // SNOW — lead: AutoWah → AutoFilter (LFO locked to BPM) → Vibrato
-    const snowLfoFreq = (TRACK_BPM / 60) / 2; // 8th-note at 127bpm ≈ 1.058 Hz
+    const snowLfoFreq = (TRACK_BPM / 60) / 2;
     stemData.snow.fx.wah        = new Tone.AutoWah({ baseFrequency:100, octaves:3, sensitivity:-20, Q:2, gain:2, wet:0.8 });
     stemData.snow.fx.autoFilter = new Tone.AutoFilter({ frequency:snowLfoFreq, baseFrequency:200, octaves:3, wet:0.0 }).start();
     stemData.snow.fx.vibrato    = new Tone.Vibrato({ frequency:4, depth:0.1, wet:0.6 });
-    // PUMP — half-note LFO, inverted: no precip = heavy pump, heavy precip = no pump
-    stemData.snow.fx.pumpGain = new Tone.Gain(1);
-    stemData.snow.fx.pumpLfo  = new Tone.LFO({
-      type: 'sawtooth', frequency: TRACK_BPM / 60 / 2,
-      min: 0.85, max: 1.0, phase: 270,
-    }).start();
+    stemData.snow.fx.pumpGain   = new Tone.Gain(1);
+    stemData.snow.fx.pumpLfo    = new Tone.LFO({ type:'sawtooth', frequency:TRACK_BPM/60/2, min:0.85, max:1.0, phase:270 }).start();
     stemData.snow.fx.pumpLfo.connect(stemData.snow.fx.pumpGain.gain);
     makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.autoFilter, stemData.snow.fx.vibrato, stemData.snow.fx.pumpGain]);
 
-    // TEMP — lead: PingPongDelay → Chorus → Reverb
     stemData.temp.fx.ping   = new Tone.PingPongDelay({ delayTime:'8n', feedback:0.1, wet:0.0 });
     stemData.temp.fx.chorus = new Tone.Chorus({ frequency:2, delayTime:2.5, depth:0.15, wet:0.3 }).start();
     stemData.temp.fx.reverb = revTemp;
     makeStemRouting('temp', [stemData.temp.fx.ping, stemData.temp.fx.chorus, stemData.temp.fx.reverb]);
 
-    // WIND — bass: Filter → Distortion
     stemData.wind.fx.filter = new Tone.Filter({ frequency:800, type:'lowpass' });
     stemData.wind.fx.dist   = new Tone.Distortion({ distortion:0.0, wet:0.0 });
     makeStemRouting('wind', [stemData.wind.fx.filter, stemData.wind.fx.dist]);
 
-    // MARKET — keys: FrequencyShifter (±1 semitone max) → Tremolo
-    // Source: BTC-USD Coinbase WebSocket, 60s delta norm (0.5 = flat).
-    // FreqShift: norm 0.5 = 0Hz. ±0.5 → ±26Hz ≈ ±1 semitone at A4.
-    // Tremolo: flat market (magnitude=0) = slow/subtle. High delta = fast/deep.
     stemData.market.fx.freqShift = new Tone.FrequencyShifter(0);
     stemData.market.fx.tremolo   = new Tone.Tremolo({ frequency:1, depth:0.1, wet:0.5 }).start();
     makeStemRouting('market', [stemData.market.fx.freqShift, stemData.market.fx.tremolo]);
 
-    // TIME — perc: HighPass → BitCrusher
-    // Solar noon (norm=1) → HP at 80Hz (full body through), midnight (norm=0) → HP at 2200Hz (transients only)
-    // BitCrusher: noon = clean (8 bits), midnight = crushed (3 bits)
     stemData.time.fx.hipass = new Tone.Filter({ frequency:1200, type:'highpass' });
     stemData.time.fx.bits   = new Tone.BitCrusher(8);
     makeStemRouting('time', [stemData.time.fx.hipass, stemData.time.fx.bits]);
 
     setStatus('· buffering audio ·');
-    // Log each player's load state — helps diagnose 404s or slow loads
     STEMS.forEach(k => {
-      const p = stemData[k].player;
-      if (!p) return;
-      p.buffer.onload  = () => console.log(`✓ loaded: ${k}_dry.mp3`);
-      p.buffer.onerror = (e) => console.error(`✗ failed: ${k}_dry.mp3`, e);
+      const p = stemData[k].player; if (!p) return;
+      p.buffer.onload  = () => console.log(`✓ ${k}`);
+      p.buffer.onerror = (e) => console.error(`✗ ${k}`, e);
     });
-    // 20s timeout — time_dry.mp3 may be larger/slower than other stems
-    await Promise.race([
-      Tone.loaded(),
-      new Promise((_,reject) => setTimeout(()=>reject(new Error('load timeout — check stem file paths')), 20000))
-    ]);
-
-    isReady = true;
-    initInProgress = false;
+    await Promise.race([Tone.loaded(), new Promise((_,rej) => setTimeout(()=>rej(new Error('load timeout')), 20000))]);
+    isReady = true; initInProgress = false;
     setStatus('· ready · press play ·');
     return true;
-
   } catch(err) {
     console.error('Audio init failed:', err);
     setStatus('· error: ' + err.message + ' ·');
@@ -570,238 +500,124 @@ async function initAudio() {
 
 function startAll() {
   const t = Tone.now() + 0.05;
-  STEMS.forEach(k => {
-    if (stemData[k].player && stemData[k].player.loaded) stemData[k].player.start(t);
-  });
+  STEMS.forEach(k => { if (stemData[k]?.player?.loaded) stemData[k].player.start(t); });
 }
 function stopAll() {
-  STEMS.forEach(k => { try { stemData[k].player && stemData[k].player.stop(); } catch(e){} });
+  STEMS.forEach(k => { try { stemData[k]?.player?.stop(); } catch(e){} });
 }
 
-// ══════════════════════════════════════
-// MODULATION LOOP — 100ms
-// ══════════════════════════════════════
-const fxDisplay = {
-  subway: { bits:8,   filter:2000, feedback:20 },
-  snow:   { wah:200,  autoFilter:0, vibrato:4, pump:100 },
-  temp:   { ping:0,   chorus:15,   reverb:5   },
-  wind:   { filter:800, dist:0 },
-  market: { shift:'0.0', tremolo:1 },
-  time:   { hipass:1200, bits:8 },
-};
-
+// ── Modulation loop ────────────────────────────────────────────────
 function runModulation() {
-  if (!isReady) return;
+  if (!isReady || !TRACK) return;
   const now = Tone.now();
 
-  // SUBWAY
-  if (stemData.subway.active) {
-    const v = liveData.subway.norm;
-    const bits = Math.round(8 - v * 5);
+  if (stemData.subway?.active) {
+    const v = liveData.subway.norm, bits = Math.round(8 - v*5);
     stemData.subway.fx.bits.bits = bits;
-    stemData.subway.fx.filter.frequency.setTargetAtTime(300 + v*3500, now, 0.15);
-    stemData.subway.fx.delay.feedback.setTargetAtTime(0.1 + v*0.55, now, 0.15);
-    fxDisplay.subway.bits     = bits;
-    fxDisplay.subway.filter   = Math.round(300 + v*3500);
-    fxDisplay.subway.feedback = Math.round((0.1+v*0.55)*100);
+    stemData.subway.fx.filter.frequency.setTargetAtTime(300+v*3500, now, 0.15);
+    stemData.subway.fx.delay.feedback.setTargetAtTime(0.1+v*0.55, now, 0.15);
+    fxDisplay.subway = { bits, filter: Math.round(300+v*3500), feedback: Math.round((0.1+v*0.55)*100) };
   }
-
-  // SNOW — autowah + autofilter + vibrato
-  if (stemData.snow.active) {
+  if (stemData.snow?.active) {
     const v = liveData.snow.norm;
-    stemData.snow.fx.wah.baseFrequency = 80 + (1-v)*300;
-    stemData.snow.fx.wah.sensitivity   = -30 + v*20;
-    stemData.snow.fx.wah.wet.setTargetAtTime(0.3 + v*0.7, now, 0.2);
-    stemData.snow.fx.autoFilter.baseFrequency = 200 + v*1800;
+    stemData.snow.fx.wah.baseFrequency = 80+(1-v)*300;
+    stemData.snow.fx.wah.sensitivity   = -30+v*20;
+    stemData.snow.fx.wah.wet.setTargetAtTime(0.3+v*0.7, now, 0.2);
+    stemData.snow.fx.autoFilter.baseFrequency = 200+v*1800;
     stemData.snow.fx.autoFilter.wet.setTargetAtTime(v*0.85, now, 0.25);
-    stemData.snow.fx.vibrato.depth.setTargetAtTime(0.05 + v*0.4, now, 0.25);
-    stemData.snow.fx.vibrato.frequency.setTargetAtTime(2 + v*8, now, 0.25);
-    // pump inverted: v=0 (dry) = deep pump (min=0), v=1 (heavy rain) = no pump (min=1)
+    stemData.snow.fx.vibrato.depth.setTargetAtTime(0.05+v*0.4, now, 0.25);
+    stemData.snow.fx.vibrato.frequency.setTargetAtTime(2+v*8, now, 0.25);
     stemData.snow.fx.pumpLfo.min = v;
-    fxDisplay.snow.wah        = Math.round(80+(1-v)*300);
-    fxDisplay.snow.autoFilter = Math.round(v*85);
-    fxDisplay.snow.vibrato    = +(2+v*8).toFixed(1);
-    fxDisplay.snow.pump       = Math.round((1-v)*100);
+    fxDisplay.snow = { wah: Math.round(80+(1-v)*300), autoFilter: Math.round(v*85), vibrato: +(2+v*8).toFixed(1), pump: Math.round((1-v)*100) };
   }
-
-  // TEMP — pingpong + chorus + reverb
-  if (stemData.temp.active) {
+  if (stemData.temp?.active) {
     const v = liveData.temp.norm;
-    stemData.temp.fx.ping.feedback.setTargetAtTime(0.05 + v*0.55, now, 0.3);
+    stemData.temp.fx.ping.feedback.setTargetAtTime(0.05+v*0.55, now, 0.3);
     stemData.temp.fx.ping.wet.setTargetAtTime(v*0.7, now, 0.3);
-    stemData.temp.fx.chorus.depth = 0.05 + v*0.75;
-    stemData.temp.fx.chorus.wet.setTargetAtTime(0.1 + v*0.6, now, 0.3);
-    stemData.temp.fx.reverb.wet.rampTo(0.05 + v*0.65, 0.5); // rampTo required for convolution reverb
-    fxDisplay.temp.ping   = Math.round(v*70);
-    fxDisplay.temp.chorus = Math.round((0.05+v*0.75)*100);
-    fxDisplay.temp.reverb = Math.round((0.05+v*0.65)*100);
+    stemData.temp.fx.chorus.depth = 0.05+v*0.75;
+    stemData.temp.fx.chorus.wet.setTargetAtTime(0.1+v*0.6, now, 0.3);
+    stemData.temp.fx.reverb.wet.rampTo(0.05+v*0.65, 0.5);
+    fxDisplay.temp = { ping: Math.round(v*70), chorus: Math.round((0.05+v*0.75)*100), reverb: Math.round((0.05+v*0.65)*100) };
   }
-
-  // WIND — filter + distortion
-  if (stemData.wind.active) {
+  if (stemData.wind?.active) {
     const v = liveData.wind.norm;
-    stemData.wind.fx.filter.frequency.setTargetAtTime(100 + v*3500, now, 0.2);
+    stemData.wind.fx.filter.frequency.setTargetAtTime(100+v*3500, now, 0.2);
     stemData.wind.fx.dist.distortion = v*0.85;
     stemData.wind.fx.dist.wet.setTargetAtTime(v*0.9, now, 0.2);
-    fxDisplay.wind.filter = Math.round(100+v*3500);
-    fxDisplay.wind.dist   = Math.round(v*100);
+    fxDisplay.wind = { filter: Math.round(100+v*3500), dist: Math.round(v*100) };
   }
-
-  // MARKET — freqshift + tremolo (BTC 60s delta)
-  if (stemData.market.active) {
-    const v = liveData.market.norm; // 0.5=flat
-    const shiftHz = (v - 0.5) * 52; // ±26Hz ≈ ±1 semitone at A4
+  if (stemData.market?.active) {
+    const v = liveData.market.norm, shiftHz = (v-0.5)*52, mag = Math.abs(v-0.5)*2;
     stemData.market.fx.freqShift.frequency.setTargetAtTime(shiftHz, now, 0.5);
-    // magnitude: 0=flat market, 1=max delta. Tremolo rate+depth track volatility.
-    const magnitude = Math.abs(v - 0.5) * 2;
-    stemData.market.fx.tremolo.frequency.setTargetAtTime(0.5 + magnitude*7.5, now, 0.3);
-    stemData.market.fx.tremolo.depth.setTargetAtTime(0.05 + magnitude*0.75, now, 0.3);
-    fxDisplay.market.shift   = shiftHz.toFixed(1);
-    fxDisplay.market.tremolo = +(0.5 + magnitude*7.5).toFixed(1);
+    stemData.market.fx.tremolo.frequency.setTargetAtTime(0.5+mag*7.5, now, 0.3);
+    stemData.market.fx.tremolo.depth.setTargetAtTime(0.05+mag*0.75, now, 0.3);
+    fxDisplay.market = { shift: shiftHz.toFixed(1), tremolo: +(0.5+mag*7.5).toFixed(1) };
   }
-
-  // TIME — highpass + bitcrusher (solar arc norm)
-  if (stemData.time.active) {
-    const v = liveData.time.norm; // 0=midnight, 1=solar noon
-    const hpFreq = 80 + (1-v)*2120; // noon=80Hz open, midnight=2200Hz closed
+  if (stemData.time?.active) {
+    const v = liveData.time.norm, hpFreq = 80+(1-v)*2120;
     stemData.time.fx.hipass.frequency.setTargetAtTime(hpFreq, now, 1.0);
-    // BitCrusher: noon=8 bits (clean), midnight=3 bits (heavily crushed)
-    stemData.time.fx.bits.bits = Math.round(3 + v*5);
-    fxDisplay.time.hipass = Math.round(hpFreq);
-    fxDisplay.time.bits   = Math.round(3 + v*5);
+    stemData.time.fx.bits.bits = Math.round(3+v*5);
+    fxDisplay.time = { hipass: Math.round(hpFreq), bits: Math.round(3+v*5) };
   }
-
   refreshFxPanel();
 }
 setInterval(runModulation, 100);
 
-// ══════════════════════════════════════
-// PER-STEM CANVAS WAVEFORMS
-// ══════════════════════════════════════
+// ── Per-stem canvas waveforms ──────────────────────────────────────
 const stemCanvases = {};
 function initStemCanvases() {
   STEMS.forEach((k, ki) => {
-    const el = document.getElementById('canvas-'+k);
-    if (!el) return;
+    const el = document.getElementById('canvas-'+k); if (!el) return;
     el.width  = (el.offsetWidth  || 160) * devicePixelRatio;
     el.height = (el.offsetHeight || 26)  * devicePixelRatio;
     stemCanvases[k] = { el, ctx: el.getContext('2d'), ki };
   });
 }
 window.addEventListener('resize', () => {
-  STEMS.forEach(k => {
-    const sc = stemCanvases[k]; if (!sc) return;
-    sc.el.width  = sc.el.offsetWidth  * devicePixelRatio;
-    sc.el.height = sc.el.offsetHeight * devicePixelRatio;
-  });
+  STEMS.forEach(k => { const sc = stemCanvases[k]; if (!sc) return; sc.el.width = sc.el.offsetWidth*devicePixelRatio; sc.el.height = sc.el.offsetHeight*devicePixelRatio; });
 });
-
 let stemCanvasT = 0;
 function drawStemCanvases() {
-  stemCanvasT++;
-  requestAnimationFrame(drawStemCanvases);
+  stemCanvasT++;requestAnimationFrame(drawStemCanvases);
   STEMS.forEach(k => {
     const sc = stemCanvases[k]; if (!sc) return;
-    const { el, ctx, ki } = sc;
-    const w = el.width, h = el.height;
-    ctx.clearRect(0, 0, w, h);
-    const isActive = stemData[k] && stemData[k].active;
+    const { el, ctx, ki } = sc, w = el.width, h = el.height;
+    ctx.clearRect(0,0,w,h);
+    const isActive = stemData[k]?.active;
     const lineColor = isActive ? 'rgba(245,240,232,0.8)'  : 'rgba(45,90,61,0.3)';
     const fillColor = isActive ? 'rgba(245,240,232,0.12)' : 'rgba(45,90,61,0.05)';
-    const analyser  = stemData[k] && stemData[k].analyser;
+    const analyser  = stemData[k]?.analyser;
     if (!analyser || !isPlaying) {
-      // idle sine placeholder
-      ctx.beginPath(); ctx.moveTo(0, h/2);
-      for (let x=0; x<=w; x+=2) {
-        const y = h/2
-          + Math.sin((x/w)*Math.PI*3 + stemCanvasT*0.018 + ki*0.8) * (h*0.22)
-          + Math.sin((x/w)*Math.PI*6 + stemCanvasT*0.011 + ki*1.2) * (h*0.08);
-        ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = lineColor; ctx.lineWidth = 1*devicePixelRatio; ctx.stroke();
-      return;
+      ctx.beginPath();ctx.moveTo(0,h/2);
+      for (let x=0;x<=w;x+=2){const y=h/2+Math.sin((x/w)*Math.PI*3+stemCanvasT*0.018+ki*0.8)*(h*0.22)+Math.sin((x/w)*Math.PI*6+stemCanvasT*0.011+ki*1.2)*(h*0.08);ctx.lineTo(x,y);}
+      ctx.strokeStyle=lineColor;ctx.lineWidth=1*devicePixelRatio;ctx.stroke();return;
     }
-    const vals = analyser.getValue(), usable = Math.floor(vals.length*0.65);
-    if (usable < 2) return;
+    const vals = analyser.getValue(), usable = Math.floor(vals.length*0.65); if (usable < 2) return;
     const pts = [];
-    for (let i=0; i<usable; i++) pts.push([(i/usable)*w, h - Math.max(0,(vals[i]+100)/100)*h*0.9 - h*0.02]);
-    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
-    for (let i=1; i<pts.length-1; i++) ctx.quadraticCurveTo(pts[i][0],pts[i][1],(pts[i][0]+pts[i+1][0])/2,(pts[i][1]+pts[i+1][1])/2);
-    ctx.lineTo(pts[pts.length-1][0],pts[pts.length-1][1]); ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
-    ctx.fillStyle = fillColor; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
-    for (let i=1; i<pts.length-1; i++) ctx.quadraticCurveTo(pts[i][0],pts[i][1],(pts[i][0]+pts[i+1][0])/2,(pts[i][1]+pts[i+1][1])/2);
-    ctx.strokeStyle = lineColor; ctx.lineWidth = 1.2*devicePixelRatio; ctx.stroke();
+    for (let i=0;i<usable;i++)pts.push([(i/usable)*w,h-Math.max(0,(vals[i]+100)/100)*h*0.9-h*0.02]);
+    ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for (let i=1;i<pts.length-1;i++)ctx.quadraticCurveTo(pts[i][0],pts[i][1],(pts[i][0]+pts[i+1][0])/2,(pts[i][1]+pts[i+1][1])/2);
+    ctx.lineTo(pts[pts.length-1][0],pts[pts.length-1][1]);ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
+    ctx.fillStyle=fillColor;ctx.fill();
+    ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+    for (let i=1;i<pts.length-1;i++)ctx.quadraticCurveTo(pts[i][0],pts[i][1],(pts[i][0]+pts[i+1][0])/2,(pts[i][1]+pts[i+1][1])/2);
+    ctx.strokeStyle=lineColor;ctx.lineWidth=1.2*devicePixelRatio;ctx.stroke();
   });
 }
 
-// ══════════════════════════════════════
-// FX PANEL — identical to original, extended for new stems
-// ══════════════════════════════════════
+// ── FX Panel ───────────────────────────────────────────────────────
 let fxPanelKey = null;
-const fxPanel      = document.getElementById('fx-panel');
+const fxPanel = document.getElementById('fx-panel');
 const fxPanelTitle = document.getElementById('fx-panel-title');
 const fxPanelBody  = document.getElementById('fx-panel-body');
 
-const fxPanelConfig = {
-  subway: {
-    title: 'L Train Delay → Drums',
-    rows: [
-      { id:'bits',     label:'Bit Depth',      unit:'bits', src:'L Train delay', normFn: v => (8-v)/5 },
-      { id:'filter',   label:'Filter Cutoff',  unit:'Hz',   src:'L Train delay', normFn: v => (v-300)/3500 },
-      { id:'feedback', label:'Delay Feedback', unit:'%',    src:'L Train delay', normFn: v => (v-10)/55 },
-    ]
-  },
-  snow: {
-    title: 'Precipitation → Lead',
-    rows: [
-      { id:'wah',        label:'Wah Base Freq',  unit:'Hz', src:'Precipitation', normFn: v => Math.max(0,1-(v-80)/300) },
-      { id:'autoFilter', label:'AutoFilter Wet', unit:'%',  src:'Precipitation', normFn: v => v/85 },
-      { id:'vibrato',    label:'Vibrato Rate',   unit:'Hz', src:'Precipitation', normFn: v => (v-2)/8 },
-      { id:'pump',       label:'Pump Depth',     unit:'%',  src:'Precip (inv)',   normFn: v => v/100 },
-    ]
-  },
-  temp: {
-    title: 'Temperature → Lead',
-    rows: [
-      { id:'ping',   label:'Ping Pong Wet', unit:'%', src:'Temperature', normFn: v => v/70 },
-      { id:'chorus', label:'Chorus Depth',  unit:'%', src:'Temperature', normFn: v => (v-5)/75 },
-      { id:'reverb', label:'Reverb Wet',    unit:'%', src:'Temperature', normFn: v => (v-5)/65 },
-    ]
-  },
-  wind: {
-    title: 'Wind Speed → Bass',
-    rows: [
-      { id:'filter', label:'Filter Cutoff', unit:'Hz', src:'Wind speed', normFn: v => (v-100)/3500 },
-      { id:'dist',   label:'Distortion',    unit:'%',  src:'Wind speed', normFn: v => v/100 },
-    ]
-  },
-  market: {
-    title: 'BTC-USD 60s Delta → Keys',
-    rows: [
-      { id:'shift',   label:'Freq Shift',    unit:'Hz', src:'BTC delta', normFn: v => (parseFloat(v)+26)/52 },
-      { id:'tremolo', label:'Tremolo Rate',  unit:'Hz', src:'BTC delta', normFn: v => (v-0.5)/7.5 },
-    ]
-  },
-  time: {
-    title: 'Hour of Day → Percussion',
-    rows: [
-      { id:'hipass', label:'HP Cutoff',  unit:'Hz',  src:'Hour of day', normFn: v => 1-(v-80)/2120 },
-      { id:'bits',   label:'Bit Depth',  unit:'bits', src:'Hour of day', normFn: v => (v-3)/5 },
-    ]
-  },
-};
-
 function openFxPanel(key) {
   fxPanelKey = key;
-  const cfg = fxPanelConfig[key];
+  const cfg = fxPanelConfig[key]; if (!cfg) return;
   fxPanelTitle.textContent = cfg.title;
   fxPanelBody.innerHTML = cfg.rows.map(r => `
     <div class="fx-row">
-      <div class="fx-row-top">
-        <span class="fx-row-name">${r.label}</span>
-        <span class="fx-row-val" id="fxv-${key}-${r.id}">—</span>
-      </div>
+      <div class="fx-row-top"><span class="fx-row-name">${r.label}</span><span class="fx-row-val" id="fxv-${key}-${r.id}">—</span></div>
       <div class="fx-track"><div class="fx-fill" id="fxb-${key}-${r.id}" style="width:2%"></div></div>
       <div class="fx-source">← ${r.src}</div>
       <div class="fx-data-val" id="fxd-${key}">Live: ${liveData[key].display}</div>
@@ -810,15 +626,12 @@ function openFxPanel(key) {
   fxPanel.classList.add('visible');
   refreshFxPanel();
 }
-function closeFxPanel() {
-  fxPanel.classList.remove('visible');
-  fxPanelKey = null;
-}
+function closeFxPanel() { fxPanel.classList.remove('visible'); fxPanelKey = null; }
 document.getElementById('fx-panel-close').addEventListener('click', closeFxPanel);
 
 function refreshFxPanel() {
   if (!fxPanelKey) return;
-  const cfg = fxPanelConfig[fxPanelKey];
+  const cfg = fxPanelConfig[fxPanelKey]; if (!cfg) return;
   const vals = fxDisplay[fxPanelKey];
   cfg.rows.forEach(r => {
     const vEl = document.getElementById(`fxv-${fxPanelKey}-${r.id}`);
@@ -827,106 +640,66 @@ function refreshFxPanel() {
     if (!vEl || !bEl) return;
     const raw = vals[r.id];
     vEl.textContent = raw + ' ' + r.unit;
-    const pct = Math.max(2, Math.min(98, r.normFn(raw) * 100));
-    bEl.style.width = pct + '%';
+    bEl.style.width = Math.max(2, Math.min(98, r.normFn(raw)*100)) + '%';
     if (dEl) dEl.textContent = 'Live: ' + liveData[fxPanelKey].display;
   });
 }
 
-// ══════════════════════════════════════
-// PLAY BUTTON — identical to original
-// ══════════════════════════════════════
+// ── Play button ────────────────────────────────────────────────────
 document.getElementById('master-play-btn').addEventListener('click', async () => {
-  if (typeof Tone === 'undefined') {
-    setStatus('· Tone.js not loaded · check network ·');
-    return;
-  }
-  const icon  = document.getElementById('play-icon');
-  const label = document.getElementById('play-label');
-
-  if (!isReady) {
-    const ok = await initAudio();
-    if (!ok) return;
-  }
-
+  if (typeof Tone === 'undefined') { setStatus('· Tone.js not loaded ·'); return; }
+  const icon = document.getElementById('play-icon'), label = document.getElementById('play-label');
+  if (!isReady) { const ok = await initAudio(); if (!ok) return; }
   if (isPlaying) {
-    stopAll();
-    icon.innerHTML = '<polygon points="0,0 10,6 0,12"/>';
-    label.textContent = 'Play track';
-    setStatus('· paused ·');
-    isPlaying = false;
+    stopAll(); icon.innerHTML='<polygon points="0,0 10,6 0,12"/>'; label.textContent='Play track'; setStatus('· paused ·'); isPlaying=false;
   } else {
-    startAll();
-    icon.innerHTML = '<rect x="0" y="0" width="3" height="12"/><rect x="6" y="0" width="3" height="12"/>';
-    label.textContent = 'Pause';
-    setStatus('· playing · blizzard 02.23.26 ·');
-    isPlaying = true;
+    startAll(); icon.innerHTML='<rect x="0" y="0" width="3" height="12"/><rect x="6" y="0" width="3" height="12"/>'; label.textContent='Pause';
+    setStatus(TRACK?.meta.statusPlaying || '· playing ·'); isPlaying=true;
   }
 });
 
-// ══════════════════════════════════════
-// TILE INTERACTIONS — identical to original
-// ══════════════════════════════════════
-STEMS.forEach(key => {
-  const tile  = document.getElementById('tile-' + key);
-  const badge = document.getElementById('badge-' + key);
-
-  tile.addEventListener('click', e => {
-    if (e.target.classList.contains('stem-mute')) return;
-    if (!isReady) { setStatus('· press play first ·'); return; }
-
-    const s = stemData[key];
-    if (s.active) {
-      s.active = false;
-      s.dryGain.gain.rampTo(1, 0.35);
-      s.wetGain.gain.rampTo(0, 0.35);
-      tile.classList.remove('active');
-      badge.textContent = 'dry';
-      const n = STEMS.filter(k=>stemData[k].active).length;
-      setStatus(n ? `· ${n} stem${n>1?'s':''} data-active ·` : '· playing · blizzard 02.23.26 ·');
-      if (fxPanelKey === key) closeFxPanel();
-    } else {
-      s.active = true;
-      s.dryGain.gain.rampTo(0, 0.35);
-      s.wetGain.gain.rampTo(1, 0.35);
-      tile.classList.add('active');
-      badge.textContent = 'data active';
-      const n = STEMS.filter(k=>stemData[k].active).length;
-      setStatus(`· ${n} stem${n>1?'s':''} data-active ·`);
-      openFxPanel(key);
-    }
+// ── Tile + mute interactions ───────────────────────────────────────
+function attachTileInteractions() {
+  STEMS.forEach(key => {
+    const tile = document.getElementById('tile-'+key), badge = document.getElementById('badge-'+key);
+    if (!tile) return;
+    tile.addEventListener('click', e => {
+      if (e.target.classList.contains('stem-mute')) return;
+      if (!isReady) { setStatus('· press play first ·'); return; }
+      const s = stemData[key];
+      if (s.active) {
+        s.active=false; s.dryGain.gain.rampTo(1,0.35); s.wetGain.gain.rampTo(0,0.35);
+        tile.classList.remove('active'); badge.textContent='dry';
+        const n = STEMS.filter(k=>stemData[k]?.active).length;
+        setStatus(n ? `· ${n} stem${n>1?'s':''} data-active ·` : (TRACK?.meta.statusPlaying||'· playing ·'));
+        if (fxPanelKey===key) closeFxPanel();
+      } else {
+        s.active=true; s.dryGain.gain.rampTo(0,0.35); s.wetGain.gain.rampTo(1,0.35);
+        tile.classList.add('active'); badge.textContent='data active';
+        const n = STEMS.filter(k=>stemData[k]?.active).length;
+        setStatus(`· ${n} stem${n>1?'s':''} data-active ·`);
+        openFxPanel(key);
+      }
+    });
   });
-});
-
-// ══════════════════════════════════════
-// MUTE — identical to original
-// ══════════════════════════════════════
-STEMS.forEach(key => {
-  document.getElementById('mute-' + key).addEventListener('click', e => {
-    e.stopPropagation();
-    const s   = stemData[key];
-    const btn = e.currentTarget;
-    s.muted = !s.muted;
-    btn.textContent = s.muted ? 'unmute' : 'mute';
-    btn.classList.toggle('is-muted', s.muted);
-    if (s.masterGain) s.masterGain.gain.rampTo(s.muted ? 0 : 1, 0.12);
+}
+function attachMuteInteractions() {
+  STEMS.forEach(key => {
+    const btn = document.getElementById('mute-'+key); if (!btn) return;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const s = stemData[key]; if (!s) return;
+      s.muted=!s.muted; btn.textContent=s.muted?'unmute':'mute'; btn.classList.toggle('is-muted',s.muted);
+      if (s.masterGain) s.masterGain.gain.rampTo(s.muted?0:1,0.12);
+    });
   });
-});
-
-// close FX panel on outside click
+}
 document.addEventListener('click', e => {
-  if (fxPanel.classList.contains('visible') &&
-      !fxPanel.contains(e.target) &&
-      !e.target.closest('.stem-tile')) closeFxPanel();
+  if (fxPanel.classList.contains('visible') && !fxPanel.contains(e.target) && !e.target.closest('.stem-tile')) closeFxPanel();
 });
 
- // re-evaluate every 30s
-
-// ══════════════════════════════════════
-// INIT CANVASES
-// ══════════════════════════════════════
-initStemCanvases();
-drawStemCanvases();
+// ── Boot ───────────────────────────────────────────────────────────
+loadTrack();
 </script>
 </body>
 </html>
