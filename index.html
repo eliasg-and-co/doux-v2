@@ -18,12 +18,10 @@
     --green-line: rgba(45,90,61,0.18);
     --mono: 'DM Mono', monospace;
     --serif: 'Shippori Mincho', serif;
-    --tod-bg: #F5F0E8;
-    --tod-ink: #2D5A3D;
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
-  body{background:var(--cream);color:var(--green);font-family:var(--mono);overflow-x:hidden;cursor:crosshair;transition:background 120s linear,color 120s linear;}
+  body{background:var(--cream);color:var(--green);font-family:var(--mono);overflow-x:hidden;cursor:crosshair;}
   #data-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;}
   nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;align-items:flex-start;padding:2rem 2.5rem;}
   .nav-icons{display:flex;gap:1.2rem;align-items:center;}
@@ -181,7 +179,7 @@
       <div class="stem-state-badge" id="badge-snow">dry</div>
       <div class="stem-source">Weather · Precipitation</div>
       <div class="stem-param">Precipitation</div>
-      <div class="stem-target">→ lead · autowah · autofilter · vibrato</div>
+      <div class="stem-target">→ lead · autowah · autofilter · vibrato · pump</div>
       <canvas class="stem-canvas" id="canvas-snow"></canvas>
       <button class="stem-mute" id="mute-snow">mute</button>
     </div>
@@ -289,7 +287,7 @@ function renderBg() {
   bgLines.forEach(l=>{
     const pts=[];
     for(let i=0;i<=90;i++){const x=(i/90)*vW();const y=l.yBase+Math.sin(i*l.freq*28+bgT*l.speed+l.phase)*l.amp+Math.sin(i*l.freq*11+bgT*l.speed*0.55+l.phase*1.4)*l.amp*0.38+Math.sin(i*l.freq*4+bgT*l.speed*0.18)*l.amp*0.14;pts.push([x,y]);}
-    const p=document.createElementNS(ns,'path');p.setAttribute('d',makeSvgCurve(pts));p.setAttribute('fill','none');p.setAttribute('stroke', bgStrokeColor || '#2D5A3D');p.setAttribute('stroke-width',l.sw);p.setAttribute('stroke-opacity',l.op);bgSvg.appendChild(p);
+    const p=document.createElementNS(ns,'path');p.setAttribute('d',makeSvgCurve(pts));p.setAttribute('fill','none');p.setAttribute('stroke','#2D5A3D');p.setAttribute('stroke-width',l.sw);p.setAttribute('stroke-opacity',l.op);bgSvg.appendChild(p);
   });
 }
 function bgTick(){bgT+=0.006;renderBg();requestAnimationFrame(bgTick);}
@@ -508,14 +506,11 @@ async function initAudio() {
     stemData.snow.fx.wah        = new Tone.AutoWah({ baseFrequency:100, octaves:3, sensitivity:-20, Q:2, gain:2, wet:0.8 });
     stemData.snow.fx.autoFilter = new Tone.AutoFilter({ frequency:snowLfoFreq, baseFrequency:200, octaves:3, wet:0.0 }).start();
     stemData.snow.fx.vibrato    = new Tone.Vibrato({ frequency:4, depth:0.1, wet:0.6 });
-    // PUMP — half-note LFO, inverted: no precipitation = full pump, heavy precip = pump off
+    // PUMP — half-note LFO, inverted: no precip = heavy pump, heavy precip = no pump
     stemData.snow.fx.pumpGain = new Tone.Gain(1);
     stemData.snow.fx.pumpLfo  = new Tone.LFO({
-      type:      'sawtooth',
-      frequency: TRACK_BPM / 60 / 2,  // half note: 127/60/2 = 1.058 Hz
-      min:       0.85,
-      max:       1.0,
-      phase:     270,
+      type: 'sawtooth', frequency: TRACK_BPM / 60 / 2,
+      min: 0.85, max: 1.0, phase: 270,
     }).start();
     stemData.snow.fx.pumpLfo.connect(stemData.snow.fx.pumpGain.gain);
     makeStemRouting('snow', [stemData.snow.fx.wah, stemData.snow.fx.autoFilter, stemData.snow.fx.vibrato, stemData.snow.fx.pumpGain]);
@@ -621,8 +616,8 @@ function runModulation() {
     stemData.snow.fx.autoFilter.wet.setTargetAtTime(v*0.85, now, 0.25);
     stemData.snow.fx.vibrato.depth.setTargetAtTime(0.05 + v*0.4, now, 0.25);
     stemData.snow.fx.vibrato.frequency.setTargetAtTime(2 + v*8, now, 0.25);
-    // pump: inverted — no precip (v=0) = deep pump (min=0.05), heavy precip (v=1) = no pump (min=1.0)
-    stemData.snow.fx.pumpLfo.min = v;  // v=0 → min=0, heavy duck; v=1 → min=1, flat (no pump)
+    // pump inverted: v=0 (dry) = deep pump (min=0), v=1 (heavy rain) = no pump (min=1)
+    stemData.snow.fx.pumpLfo.min = v;
     fxDisplay.snow.wah        = Math.round(80+(1-v)*300);
     fxDisplay.snow.autoFilter = Math.round(v*85);
     fxDisplay.snow.vibrato    = +(2+v*8).toFixed(1);
@@ -763,7 +758,7 @@ const fxPanelConfig = {
       { id:'wah',        label:'Wah Base Freq',  unit:'Hz', src:'Precipitation', normFn: v => Math.max(0,1-(v-80)/300) },
       { id:'autoFilter', label:'AutoFilter Wet', unit:'%',  src:'Precipitation', normFn: v => v/85 },
       { id:'vibrato',    label:'Vibrato Rate',   unit:'Hz', src:'Precipitation', normFn: v => (v-2)/8 },
-      { id:'pump',       label:'Pump Depth',     unit:'%',  src:'Precipitation (inv)', normFn: v => v/100 },
+      { id:'pump',       label:'Pump Depth',     unit:'%',  src:'Precip (inv)',   normFn: v => v/100 },
     ]
   },
   temp: {
@@ -925,62 +920,7 @@ document.addEventListener('click', e => {
       !e.target.closest('.stem-tile')) closeFxPanel();
 });
 
-
-// ══════════════════════════════════════
-// TIME-OF-DAY PALETTE SYSTEM
-// Japanese color palette, interpolated continuously.
-// Transitions take 20 minutes in real time — imperceptible in the moment.
-// ══════════════════════════════════════
-const TOD_KEYFRAMES = [
-  { h:  0, bg:'#0e1420', ink:'#4a8f7a', name:'kon' },        // midnight — deep indigo
-  { h:  5, bg:'#0e1420', ink:'#4a8f7a', name:'kon' },        // pre-dawn
-  { h:  7, bg:'#d4b896', ink:'#3d2010', name:'usu-kou' },    // dawn — warm incense beige
-  { h: 17, bg:'#F5F0E8', ink:'#2D5A3D', name:'shironeri' },  // day — cream (unchanged)
-  { h: 20, bg:'#b8845a', ink:'#3d2010', name:'kuchiba' },    // dusk — fallen-leaf amber
-  { h: 24, bg:'#0e1420', ink:'#4a8f7a', name:'kon' },        // night wraps back
-];
-
-function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  return [r,g,b];
-}
-function lerpColor(a, b, t) {
-  const ra=hexToRgb(a), rb=hexToRgb(b);
-  const r = Math.round(ra[0]+(rb[0]-ra[0])*t);
-  const g = Math.round(ra[1]+(rb[1]-ra[1])*t);
-  const bl= Math.round(ra[2]+(rb[2]-ra[2])*t);
-  return `rgb(${r},${g},${bl})`;
-}
-function getTodPalette() {
-  const now = new Date();
-  const h = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
-  let a = TOD_KEYFRAMES[0], b = TOD_KEYFRAMES[1];
-  for (let i=0; i<TOD_KEYFRAMES.length-1; i++) {
-    if (h >= TOD_KEYFRAMES[i].h && h < TOD_KEYFRAMES[i+1].h) {
-      a = TOD_KEYFRAMES[i]; b = TOD_KEYFRAMES[i+1]; break;
-    }
-  }
-  const t = (h - a.h) / (b.h - a.h);
-  return {
-    bg:  lerpColor(a.bg,  b.bg,  t),
-    ink: lerpColor(a.ink, b.ink, t),
-  };
-}
-function applyTodPalette() {
-  const { bg, ink } = getTodPalette();
-  const root = document.documentElement;
-  root.style.setProperty('--tod-bg',  bg);
-  root.style.setProperty('--tod-ink', ink);
-  document.body.style.background = bg;
-  document.body.style.color      = ink;
-  // update svg bg canvas stroke color
-  bgStrokeColor = ink;
-}
-let bgStrokeColor = '#2D5A3D';
-applyTodPalette();
-setInterval(applyTodPalette, 30000); // re-evaluate every 30s
+ // re-evaluate every 30s
 
 // ══════════════════════════════════════
 // INIT CANVASES
