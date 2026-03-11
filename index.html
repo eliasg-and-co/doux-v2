@@ -190,6 +190,7 @@ if (typeof Tone === 'undefined') {
 }
 
 // ── Background canvas ──────────────────────────────────────────────
+let todStrokeColor = '#2D5A3D'; // set early — TOD palette updates this later
 const bgSvg = document.getElementById('data-canvas');
 let bgLines = [], bgT = 0;
 const vW = () => window.innerWidth, vH = () => window.innerHeight;
@@ -737,7 +738,7 @@ function getTodPalette() {
   const t=(h-lo.h)/(hi.h-lo.h);
   return { bg:lerpColor(lo.bg,hi.bg,t), ink:lerpColor(lo.ink,hi.ink,t), stroke:lerpColor(lo.stroke,hi.stroke,t) };
 }
-let todStrokeColor = '#2D5A3D';
+let _todInit = true;
 function applyTodPalette() {
   const p=getTodPalette();
   todStrokeColor=p.stroke;
