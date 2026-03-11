@@ -742,17 +742,26 @@ function getTodPalette() {
   const t=(h-lo.h)/(hi.h-lo.h);
   return { bg:lerpColor(lo.bg,hi.bg,t), ink:lerpColor(lo.ink,hi.ink,t), stroke:lerpColor(lo.stroke,hi.stroke,t) };
 }
-let _todInit = true;
+let _todFirstApply = true;
 function applyTodPalette() {
   const p=getTodPalette();
   todStrokeColor=p.stroke;
   const root=document.documentElement;
+  if (_todFirstApply) {
+    // disable transition for instant snap on load
+    document.body.style.transition = 'none';
+  }
   root.style.setProperty('--tod-bg',    p.bg);
   root.style.setProperty('--tod-ink',   p.ink);
   root.style.setProperty('--cream',     p.bg);
   root.style.setProperty('--green',     p.ink);
   root.style.setProperty('--green-line',rgbToRgba(p.ink,0.18));
   root.style.setProperty('--green-faint',rgbToRgba(p.ink,0.07));
+  if (_todFirstApply) {
+    // re-enable transition after a frame so subsequent changes fade slowly
+    requestAnimationFrame(() => { document.body.style.transition = 'background 120s linear, color 120s linear'; });
+    _todFirstApply = false;
+  }
 }
 applyTodPalette();
 setInterval(applyTodPalette, 30000);
